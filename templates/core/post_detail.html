@@ -42,6 +42,19 @@
     </figure>
     {% endif %}
 
+    {% if post.video_embed_url %}
+    <div class="post-video">
+        <iframe
+            src="{{ post.video_embed_url }}"
+            title="{{ post.titulo }}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+            loading="lazy">
+        </iframe>
+    </div>
+    {% endif %}
+
     <div class="post-content">
         {{ post.conteudo|linebreaksbr }}
     </div>

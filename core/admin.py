@@ -32,7 +32,7 @@ class PostAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Conteúdo Principal', {
-            'fields': ('titulo', 'slug', 'subtitulo', 'conteudo', 'imagem_destaque')
+            'fields': ('titulo', 'slug', 'subtitulo', 'conteudo', 'imagem_destaque', 'video_url')
         }),
         ('Organização', {
             'fields': ('categoria', 'tags')

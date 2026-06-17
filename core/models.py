@@ -77,6 +77,11 @@ class Post(models.Model):
     data_criacao = models.DateTimeField('Criado em', auto_now_add=True)
     data_atualizacao = models.DateTimeField('Atualizado em', auto_now=True)
     data_publicacao = models.DateTimeField('Publicado em', null=True, blank=True)
+    video_url = models.URLField(
+        'URL do YouTube',
+        blank=True,
+        help_text='Cole a URL completa do YouTube (ex: https://www.youtube.com/watch?v=XXXXX)'
+    )
     tempo_leitura = models.PositiveIntegerField('Tempo de leitura (min)', default=5)
     visualizacoes = models.PositiveIntegerField('Visualizações', default=0)
 
@@ -110,6 +115,26 @@ class Post(models.Model):
 
     def get_absolute_url(self):
         return reverse('core:post_detail', kwargs={'slug': self.slug})
+
+    @property
+    def video_id(self):
+        """Extrai o video_id de URLs do YouTube."""
+        if not self.video_url:
+            return None
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.video_url)
+        if 'youtu.be' in parsed.netloc:
+            return parsed.path.strip('/')
+        if 'youtube.com' in parsed.netloc:
+            qs = parse_qs(parsed.query)
+            return qs.get('v', [None])[0]
+        return None
+
+    @property
+    def video_embed_url(self):
+        """Retorna a URL de embed do YouTube."""
+        vid = self.video_id
+        return f'https://www.youtube.com/embed/{vid}' if vid else None
 
     @property
     def esta_publicado(self):
