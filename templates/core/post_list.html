@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}📚 Todos os Artigos - Blog Cigana Padilha{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        {% if categoria_atual %}
+            📂 {{ posts.0.categoria.icone|default:'📂' }} Posts em "{{ categoria_atual|title }}"
+        {% elif tag_atual %}
+            🏷️ Posts com tag "{{ tag_atual|title }}"
+        {% elif busca %}
+            🔍 Resultados para "{{ busca }}"
+        {% else %}
+            📚 Todos os Artigos
+        {% endif %}
+    </h1>
+    <p class="page-subtitle">{{ posts.paginator.count }} artigo{{ posts.paginator.count|pluralize:'s' }} publicados</p>
+</div>
+
+<div class="blog-layout">
+    <!-- Sidebar Filtros -->
+    <aside class="sidebar" aria-label="Filtros">
+        {% if categorias %}
+        <div class="filter-section">
+            <h3>📂 Categorias</h3>
+            <ul class="filter-list">
+                <li><a href="{% url 'core:post_list' %}" class="filter-link {% if not categoria_atual %}active{% endif %}">Todas</a></li>
+                {% for cat in categorias %}
+                <li>
+                    <a href="{% url 'core:post_list' %}?categoria={{ cat.slug }}" class="filter-link {% if categoria_atual == cat.slug %}active{% endif %}">
+                        {{ cat.icone }} {{ cat.nome }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if tags_populares %}
+        <div class="filter-section">
+            <h3>🏷️ Tags Populares</h3>
+            <div class="tags-cloud">
+                {% for tag in tags_populares %}
+                <a href="{% url 'core:post_list' %}?tag={{ tag.slug }}" class="tag-link {% if tag_atual == tag.slug %}active{% endif %}">
+                    #{{ tag.nome }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </aside>
+
+    <!-- Lista de Posts -->
+    <div class="blog-content">
+        <div class="posts-grid">
+            {% for post in posts %}
+            <article class="post-card">
+                {% if post.imagem_destaque %}
+                <div class="card-image">
+                    <img src="{{ post.imagem_destaque.url }}" alt="{{ post.titulo }}" loading="lazy">
+                </div>
+                {% else %}
+                <div class="card-image card-image-placeholder">
+                    <span class="placeholder-icon">🃏</span>
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    {% if post.categoria %}
+                    <span class="card-badge">{{ post.categoria.icone }} {{ post.categoria.nome }}</span>
+                    {% endif %}
+                    <h3 class="card-title">
+                        <a href="{{ post.get_absolute_url }}">{{ post.titulo }}</a>
+                    </h3>
+                    {% if post.subtitulo %}
+                    <p class="card-text">{{ post.subtitulo|truncatechars:120 }}</p>
+                    {% endif %}
+                    <div class="card-meta">
+                        <time datetime="{{ post.data_publicacao|date:'Y-m-d' }}">📅 {{ post.data_publicacao|date:"d/m/Y" }}</time>
+                        <span>☕ {{ post.tempo_leitura }} min</span>
+                    </div>
+                </div>
+            </article>
+            {% empty %}
+            <div class="empty-state">
+                <span class="empty-icon">🔮</span>
+                <p>Nenhum artigo encontrado com esses filtros.</p>
+                <a href="{% url 'core:post_list' %}" class="btn btn-secondary">Mostrar Todos</a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Paginação -->
+        {% if posts.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="Paginação">
+            {% if posts.has_previous %}
+            <a href="?page=1{% if categoria_atual %}&categoria={{ categoria_atual }}{% endif %}{% if busca %}&q={{ busca }}{% endif %}" class="page-link" aria-label="Primeira página">««</a>
+            <a href="?page={{ posts.previous_page_number }}{% if categoria_atual %}&categoria={{ categoria_atual }}{% endif %}{% if busca %}&q={{ busca }}{% endif %}" class="page-link" aria-label="Página anterior">«</a>
+            {% endif %}
+
+            {% for num in posts.paginator.page_range %}
+                {% if num == posts.number %}
+                    <span class="page-link active">{{ num }}</span>
+                {% elif num > posts.number|add:'-3' and num < posts.number|add:'3' %}
+                    <a href="?page={{ num }}{% if categoria_atual %}&categoria={{ categoria_atual }}{% endif %}{% if busca %}&q={{ busca }}{% endif %}" class="page-link">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if posts.has_next %}
+            <a href="?page={{ posts.next_page_number }}{% if categoria_atual %}&categoria={{ categoria_atual }}{% endif %}{% if busca %}&q={{ busca }}{% endif %}" class="page-link" aria-label="Próxima página">»</a>
+            <a href="?page={{ posts.paginator.num_pages }}{% if categoria_atual %}&categoria={{ categoria_atual }}{% endif %}{% if busca %}&q={{ busca }}{% endif %}" class="page-link" aria-label="Última página">»»</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

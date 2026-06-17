@@ -1,0 +1,117 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% block meta_description %}Blog místico sobre Tarô, esoterismo, astrologia e espiritualidade. Leituras, rituais e sabedoria ancestral.{% endblock %}">
+    <title>{% block title %}🔮 Blog Cigana Padilha - Tarô & Esoterismo{% endblock %}</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Background mystical elements -->
+    <div class="mystical-bg" aria-hidden="true">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="stars"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="site-header" role="banner">
+        <div class="container header-inner">
+            <a href="{% url 'core:home' %}" class="logo" aria-label="Blog Cigana Padilha - Início">
+                <span class="logo-icon" aria-hidden="true">🔮</span>
+                <span class="logo-text">
+                    <span class="logo-main">Blog Cigana Padilha</span>
+                    <span class="logo-sub">Tarô & Esoterismo</span>
+                </span>
+            </a>
+
+            <nav class="main-nav" role="navigation" aria-label="Navegação principal">
+                <ul class="nav-list">
+                    <li><a href="{% url 'core:home' %}" class="nav-link">Início</a></li>
+                    <li><a href="{% url 'core:post_list' %}" class="nav-link">Artigos</a></li>
+                    <li><a href="{% url 'core:post_list' %}?categoria=tarot" class="nav-link">🃏 Tarô</a></li>
+                    <li><a href="{% url 'core:post_list' %}?categoria=astrologia" class="nav-link">⭐ Astrologia</a></li>
+                    <li><a href="{% url 'core:post_list' %}?categoria=rituais" class="nav-link">🕯️ Rituais</a></li>
+                    <li><a href="{% url 'core:post_list' %}?categoria=cristais" class="nav-link">💎 Cristais</a></li>
+                </ul>
+            </nav>
+
+            <form action="{% url 'core:busca' %}" method="get" class="search-form" role="search">
+                <label for="search-input" class="visually-hidden">Buscar artigos</label>
+                <input type="search" id="search-input" name="q" placeholder="Buscar..." value="{{ request.GET.q|default:'' }}" class="search-input">
+                <button type="submit" class="search-btn" aria-label="Buscar">🔍</button>
+            </form>
+
+            <a href="/admin/" class="admin-link" target="_blank" rel="noopener">✨ Admin</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="site-main" role="main">
+        <div class="container">
+            {% if messages %}
+                <div class="messages" role="alert">
+                    {% for message in messages %}
+                        <div class="message message-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer" role="contentinfo">
+        <div class="container footer-inner">
+            <div class="footer-main">
+                <div class="footer-brand">
+                    <span class="footer-icon" aria-hidden="true">🔮</span>
+                    <h3>Blog Cigana Padilha</h3>
+                    <p>Sabedoria ancestral para a alma moderna. Tarô, astrologia, cristais e rituais para iluminar seu caminho.</p>
+                </div>
+
+                <nav class="footer-nav" aria-label="Links do rodapé">
+                    <h4>Navegação</h4>
+                    <ul>
+                        <li><a href="{% url 'core:home' %}">Início</a></li>
+                        <li><a href="{% url 'core:post_list' %}">Todos os Artigos</a></li>
+                        <li><a href="{% url 'core:post_list' %}?categoria=tarot">Tarô</a></li>
+                        <li><a href="{% url 'core:post_list' %}?categoria=astrologia">Astrologia</a></li>
+                        <li><a href="{% url 'core:post_list' %}?categoria=rituais">Rituais</a></li>
+                    </ul>
+                </nav>
+
+                <div class="footer-contact">
+                    <h4>Conecte-se</h4>
+                    <p>Feito com amor e intuição ✨</p>
+                    <div class="moon-phases" aria-label="Fases da lua">
+                        <span>🌑</span><span>🌒</span><span>🌓</span><span>🌔</span>
+                        <span>🌕</span><span>🌖</span><span>🌗</span><span>🌘</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2024 Blog Cigana Padilha. Todos os direitos reservados.</p>
+                <p class="blessing">Que as estrelas guiem seu caminho 🌟</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

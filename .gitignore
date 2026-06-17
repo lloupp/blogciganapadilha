@@ -1,0 +1,10 @@
+# Dependências
+.env
+venv/
+*.pyc
+__pycache__/
+*.sqlite3
+media/posts/*
+!media/posts/.gitkeep
+staticfiles/
+.DS_Store

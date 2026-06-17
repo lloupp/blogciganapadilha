@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Hero Banner -->
+<section class="hero" aria-label="Bem-vindo ao Blog Cigana Padilha">
+    <div class="hero-content">
+        <h1 class="hero-title">🔮 Sabedoria Ancestral</h1>
+        <p class="hero-subtitle">Tarô, astrologia, cristais e rituais para iluminar seu caminho espiritual</p>
+        <a href="{% url 'core:post_list' %}" class="btn btn-primary">Explorar Artigos</a>
+    </div>
+</section>
+
+<!-- Posts em Destaque -->
+{% if posts_destaque %}
+<section class="section featured-section" aria-label="Artigos em destaque">
+    <h2 class="section-title">✨ Em Destaque</h2>
+    <div class="featured-grid">
+        {% for post in posts_destaque %}
+        <article class="featured-card">
+            {% if post.imagem_destaque %}
+            <div class="card-image">
+                <img src="{{ post.imagem_destaque.url }}" alt="{{ post.titulo }}" loading="lazy">
+            </div>
+            {% endif %}
+            <div class="card-body">
+                {% if post.categoria %}
+                <span class="card-badge">{{ post.categoria.icone }} {{ post.categoria.nome }}</span>
+                {% endif %}
+                <h3 class="card-title">
+                    <a href="{{ post.get_absolute_url }}">{{ post.titulo }}</a>
+                </h3>
+                {% if post.subtitulo %}
+                <p class="card-text">{{ post.subtitulo }}</p>
+                {% endif %}
+                <div class="card-meta">
+                    <time datetime="{{ post.data_publicacao|date:'Y-m-d' }}">📅 {{ post.data_publicacao|date:"d/m/Y" }}</time>
+                    <span>☕ {{ post.tempo_leitura }} min de leitura</span>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Últimos Posts -->
+<section class="section recent-section" aria-label="Artigos recentes">
+    <h2 class="section-title">📜 Últimos Artigos</h2>
+    <div class="posts-grid">
+        {% for post in posts_recentes %}
+        <article class="post-card">
+            {% if post.imagem_destaque %}
+            <div class="card-image">
+                <img src="{{ post.imagem_destaque.url }}" alt="{{ post.titulo }}" loading="lazy">
+            </div>
+            {% else %}
+            <div class="card-image card-image-placeholder">
+                <span class="placeholder-icon">🃏</span>
+            </div>
+            {% endif %}
+            <div class="card-body">
+                {% if post.categoria %}
+                <span class="card-badge">{{ post.categoria.icone }} {{ post.categoria.nome }}</span>
+                {% endif %}
+                <h3 class="card-title">
+                    <a href="{{ post.get_absolute_url }}">{{ post.titulo }}</a>
+                </h3>
+                {% if post.subtitulo %}
+                <p class="card-text">{{ post.subtitulo|truncatechars:120 }}</p>
+                {% endif %}
+                <div class="card-meta">
+                    <time datetime="{{ post.data_publicacao|date:'Y-m-d' }}">📅 {{ post.data_publicacao|date:"d/m/Y" }}</time>
+                    <span>☕ {{ post.tempo_leitura }} min</span>
+                </div>
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty-state">
+            <p>🌀 Ainda não há artigos publicados. Volte em breve!</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="section-cta">
+        <a href="{% url 'core:post_list' %}" class="btn btn-secondary">Ver Todos os Artigos →</a>
+    </div>
+</section>
+
+<!-- Categorias -->
+{% if categorias %}
+<section class="section categories-section" aria-label="Categorias">
+    <h2 class="section-title">📂 Explorar por Categoria</h2>
+    <div class="categories-grid">
+        {% for cat in categorias %}
+        <a href="{% url 'core:post_list' %}?categoria={{ cat.slug }}" class="category-card">
+            <span class="category-icon">{{ cat.icone }}</span>
+            <h3 class="category-name">{{ cat.nome }}</h3>
+            {% if cat.descricao %}
+            <p class="category-desc">{{ cat.descricao|truncatechars:80 }}</p>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

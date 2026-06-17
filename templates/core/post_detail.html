@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}{{ post.titulo }} - Blog Cigana Padilha{% endblock %}
+{% block meta_description %}{{ post.subtitulo|default:post.titulo }}{% endblock %}
+
+{% block content %}
+<article class="post-article">
+    <header class="post-header">
+        {% if post.categoria %}
+        <div class="post-category">
+            <a href="{% url 'core:post_list' %}?categoria={{ post.categoria.slug }}" class="post-badge">
+                {{ post.categoria.icone }} {{ post.categoria.nome }}
+            </a>
+        </div>
+        {% endif %}
+
+        <h1 class="post-title">{{ post.titulo }}</h1>
+
+        {% if post.subtitulo %}
+        <p class="post-subtitle">{{ post.subtitulo }}</p>
+        {% endif %}
+
+        <div class="post-meta">
+            <time datetime="{{ post.data_publicacao|date:'Y-m-d' }}">
+                📅 {{ post.data_publicacao|date:"d \d\e F \d\e Y" }}
+            </time>
+            <span>☕ {{ post.tempo_leitura }} min de leitura</span>
+            <span>👁️ {{ post.visualizacoes }} visualizações</span>
+        </div>
+
+        {% if post.tags.all %}
+        <div class="post-tags">
+            {% for tag in post.tags.all %}
+            <a href="{% url 'core:post_list' %}?tag={{ tag.slug }}" class="tag-link">#{{ tag.nome }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </header>
+
+    {% if post.imagem_destaque %}
+    <figure class="post-image">
+        <img src="{{ post.imagem_destaque.url }}" alt="{{ post.titulo }}" loading="lazy">
+    </figure>
+    {% endif %}
+
+    <div class="post-content">
+        {{ post.conteudo|linebreaksbr }}
+    </div>
+
+    <footer class="post-footer">
+        {% if post.categoria %}
+        <div class="post-nav">
+            <h4>📂 Categoria</h4>
+            <a href="{% url 'core:post_list' %}?categoria={{ post.categoria.slug }}" class="post-badge large">
+                {{ post.categoria.icone }} {{ post.categoria.nome }}
+            </a>
+            {% if post.categoria.descricao %}
+            <p class="category-description">{{ post.categoria.descricao }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if post.tags.all %}
+        <div class="post-tags-footer">
+            <h4>🏷️ Tags</h4>
+            <div class="tags-list">
+                {% for tag in post.tags.all %}
+                <a href="{% url 'core:post_list' %}?tag={{ tag.slug }}" class="tag-link">#{{ tag.nome }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </footer>
+</article>
+
+<!-- Posts Relacionados -->
+{% if posts_relacionados %}
+<section class="section related-section" aria-label="Artigos relacionados">
+    <h2 class="section-title">🌀 Você Também Pode Gostar</h2>
+    <div class="posts-grid">
+        {% for rel in posts_relacionados %}
+        <article class="post-card">
+            {% if rel.imagem_destaque %}
+            <div class="card-image">
+                <img src="{{ rel.imagem_destaque.url }}" alt="{{ rel.titulo }}" loading="lazy">
+            </div>
+            {% else %}
+            <div class="card-image card-image-placeholder">
+                <span class="placeholder-icon">🔮</span>
+            </div>
+            {% endif %}
+            <div class="card-body">
+                {% if rel.categoria %}
+                <span class="card-badge">{{ rel.categoria.icone }} {{ rel.categoria.nome }}</span>
+                {% endif %}
+                <h3 class="card-title">
+                    <a href="{{ rel.get_absolute_url }}">{{ rel.titulo }}</a>
+                </h3>
+                <div class="card-meta">
+                    <time datetime="{{ rel.data_publicacao|date:'Y-m-d' }}">📅 {{ rel.data_publicacao|date:"d/m/Y" }}</time>
+                    <span>☕ {{ rel.tempo_leitura }} min</span>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
