@@ -25,8 +25,33 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.nav-link').forEach(link => {
         const href = link.getAttribute('href');
         if (href === currentPath || (href !== '/' && currentPath.startsWith(href))) {
-            link.style.color = 'var(--color-primary)';
-            link.style.background = 'rgba(212, 165, 245, 0.1)';
+            link.classList.add('active');
         }
     });
+
+    // Mobile nav toggle
+    const navToggle = document.getElementById('navToggle');
+    const mainNav = document.getElementById('mainNav');
+    if (navToggle && mainNav) {
+        navToggle.addEventListener('click', function() {
+            const isOpen = mainNav.classList.toggle('open');
+            navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+
+        mainNav.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                mainNav.classList.remove('open');
+                navToggle.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        document.addEventListener('click', function(event) {
+            if (mainNav.classList.contains('open') &&
+                !mainNav.contains(event.target) &&
+                !navToggle.contains(event.target)) {
+                mainNav.classList.remove('open');
+                navToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
 });

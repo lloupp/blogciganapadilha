@@ -37,7 +37,7 @@
                 </span>
             </a>
 
-            <nav class="main-nav" role="navigation" aria-label="Navegação principal">
+            <nav class="main-nav" id="mainNav" role="navigation" aria-label="Navegação principal">
                 <ul class="nav-list">
                     <li><a href="{% url 'core:home' %}" class="nav-link">Início</a></li>
                     <li><a href="{% url 'core:post_list' %}" class="nav-link">Artigos</a></li>
@@ -55,6 +55,10 @@
             </form>
 
             <a href="/admin/" class="admin-link" target="_blank" rel="noopener">✨ Admin</a>
+
+            <button type="button" class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="mainNav">
+                <span></span><span></span><span></span>
+            </button>
         </div>
     </header>
 

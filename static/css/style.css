@@ -4,19 +4,19 @@
 
 /* --- CSS Variables / Design Tokens --- */
 :root {
-    --color-bg: #0a0a1a;
-    --color-bg-alt: #12122a;
-    --color-bg-card: #1a1a3e;
-    --color-bg-hover: #222255;
-    --color-primary: #d4a5f5;
-    --color-primary-dark: #b388e0;
+    --color-bg: #240046;
+    --color-bg-alt: #3c096c;
+    --color-bg-card: #4d1186;
+    --color-bg-hover: #5a189a;
+    --color-primary: #c77dff;
+    --color-primary-dark: #9d4edd;
     --color-accent: #f0c060;
     --color-accent-dim: #a08040;
-    --color-text: #e8e0f0;
-    --color-text-muted: #9890b0;
-    --color-text-dim: #706888;
-    --color-border: #2a2a5a;
-    --color-border-light: #3a3a6a;
+    --color-text: #f3e8ff;
+    --color-text-muted: #c9a9e6;
+    --color-text-dim: #9c79bf;
+    --color-border: #6a1fb0;
+    --color-border-light: #7b2cbf;
     --color-success: #7ae0a0;
     --color-info: #80b8ff;
     --color-warning: #f0c060;
@@ -26,8 +26,8 @@
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 20px;
-    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(212, 165, 245, 0.05);
-    --shadow-glow: 0 0 30px rgba(212, 165, 245, 0.1);
+    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(199, 125, 255, 0.05);
+    --shadow-glow: 0 0 30px rgba(199, 125, 255, 0.1);
     --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --container: 1200px;
     --header-height: 70px;
@@ -112,7 +112,7 @@ img {
 .orb-1 {
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, #d4a5f5, #6a3b9a);
+    background: radial-gradient(circle, #c77dff, #5a189a);
     top: -200px;
     right: -200px;
     animation-delay: 0s;
@@ -169,7 +169,7 @@ img {
     position: sticky;
     top: 0;
     z-index: 100;
-    background: rgba(10, 10, 26, 0.9);
+    background: rgba(36, 0, 70, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--color-border);
@@ -242,7 +242,49 @@ img {
 
 .nav-link:hover {
     color: var(--color-primary);
-    background: rgba(212, 165, 245, 0.1);
+    background: rgba(199, 125, 255, 0.1);
+}
+
+.nav-link.active {
+    color: var(--color-primary);
+    background: rgba(199, 125, 255, 0.12);
+}
+
+/* --- Mobile Nav Toggle --- */
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 8px;
+}
+
+.nav-toggle span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--color-primary);
+    border-radius: 2px;
+    transition: var(--transition);
+}
+
+.nav-toggle[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nav-toggle[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
 }
 
 /* --- Search Form --- */
@@ -389,12 +431,12 @@ img {
 .btn-primary {
     background: linear-gradient(135deg, var(--color-primary), #9a6fd0);
     color: var(--color-bg);
-    box-shadow: 0 4px 15px rgba(212, 165, 245, 0.3);
+    box-shadow: 0 4px 15px rgba(199, 125, 255, 0.3);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(212, 165, 245, 0.4);
+    box-shadow: 0 6px 25px rgba(199, 125, 255, 0.4);
     color: var(--color-bg);
 }
 
@@ -405,7 +447,7 @@ img {
 }
 
 .btn-secondary:hover {
-    background: rgba(212, 165, 245, 0.1);
+    background: rgba(199, 125, 255, 0.1);
     transform: translateY(-1px);
 }
 
@@ -474,7 +516,7 @@ img {
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 600;
-    background: rgba(212, 165, 245, 0.15);
+    background: rgba(199, 125, 255, 0.15);
     color: var(--color-primary);
     align-self: flex-start;
 }
@@ -642,12 +684,12 @@ img {
 }
 
 .filter-link:hover {
-    background: rgba(212, 165, 245, 0.1);
+    background: rgba(199, 125, 255, 0.1);
     color: var(--color-primary);
 }
 
 .filter-link.active {
-    background: rgba(212, 165, 245, 0.15);
+    background: rgba(199, 125, 255, 0.15);
     color: var(--color-primary);
     font-weight: 600;
 }
@@ -663,19 +705,19 @@ img {
     padding: 4px 10px;
     border-radius: 16px;
     font-size: 0.78rem;
-    background: rgba(212, 165, 245, 0.1);
+    background: rgba(199, 125, 255, 0.1);
     color: var(--color-text-muted);
     transition: var(--transition);
     text-decoration: none !important;
 }
 
 .tag-link:hover {
-    background: rgba(212, 165, 245, 0.2);
+    background: rgba(199, 125, 255, 0.2);
     color: var(--color-primary);
 }
 
 .tag-link.active {
-    background: rgba(212, 165, 245, 0.2);
+    background: rgba(199, 125, 255, 0.2);
     color: var(--color-primary);
     border: 1px solid var(--color-primary);
 }
@@ -730,7 +772,7 @@ img {
 .page-link:hover {
     border-color: var(--color-primary);
     color: var(--color-primary);
-    background: rgba(212, 165, 245, 0.1);
+    background: rgba(199, 125, 255, 0.1);
 }
 
 .page-link.active {
@@ -761,7 +803,7 @@ img {
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 600;
-    background: rgba(212, 165, 245, 0.15);
+    background: rgba(199, 125, 255, 0.15);
     color: var(--color-primary);
     text-decoration: none !important;
 }
@@ -772,7 +814,7 @@ img {
 }
 
 .post-badge:hover {
-    background: rgba(212, 165, 245, 0.25);
+    background: rgba(199, 125, 255, 0.25);
 }
 
 .post-title {
@@ -1043,20 +1085,41 @@ img {
         gap: 10px;
     }
 
+    .nav-toggle {
+        display: flex;
+    }
+
     .main-nav {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        position: fixed;
+        top: var(--header-height);
+        left: 0;
+        right: 0;
+        flex: none;
+        max-height: 0;
+        overflow: hidden;
+        background: var(--color-bg-alt);
+        border-bottom: 1px solid var(--color-border);
+        box-shadow: var(--shadow-card);
+        transition: max-height var(--transition);
+        z-index: 99;
+    }
+
+    .main-nav.open {
+        max-height: calc(100vh - var(--header-height));
+        overflow-y: auto;
     }
 
     .nav-list {
+        flex-direction: column;
         flex-wrap: nowrap;
-        gap: 2px;
+        gap: 0;
+        padding: 8px 0;
     }
 
     .nav-link {
-        padding: 8px 10px;
-        font-size: 0.8rem;
-        white-space: nowrap;
+        padding: 16px 24px;
+        border-radius: 0;
+        font-size: 1rem;
     }
 
     .admin-link {

@@ -118,17 +118,15 @@ class Post(models.Model):
 
     @property
     def video_id(self):
-        """Extrai o video_id de URLs do YouTube."""
+        """Extrai o video_id de URLs do YouTube (watch, youtu.be, shorts, embed, live)."""
         if not self.video_url:
             return None
-        from urllib.parse import urlparse, parse_qs
-        parsed = urlparse(self.video_url)
-        if 'youtu.be' in parsed.netloc:
-            return parsed.path.strip('/')
-        if 'youtube.com' in parsed.netloc:
-            qs = parse_qs(parsed.query)
-            return qs.get('v', [None])[0]
-        return None
+        import re
+        match = re.search(
+            r'(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/)|youtu\.be/)([A-Za-z0-9_-]{11})',
+            self.video_url
+        )
+        return match.group(1) if match else None
 
     @property
     def video_embed_url(self):
