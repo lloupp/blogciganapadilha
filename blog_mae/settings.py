@@ -28,7 +28,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'core',
+    'axes',
 ]
 
 MIDDLEWARE = [
@@ -39,6 +41,12 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',
+]
+
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 ROOT_URLCONF = 'blog_mae.urls'
@@ -97,3 +105,31 @@ LOGOUT_REDIRECT_URL = 'core:home'
 ADMIN_SITE_HEADER = '✨ Blog Cigana Padilha - Admin'
 ADMIN_SITE_TITLE = 'Painel Admin'
 ADMIN_INDEX_TITLE = 'Gerenciar Conteúdo'
+
+# ============================================================
+# Segurança — Produção
+# ============================================================
+
+# Nginx termina TLS; o Gunicorn só vê HTTP puro via socket Unix.
+# Este header tem que existir ANTES/JUNTO do SECURE_SSL_REDIRECT,
+# senão o Django acha que toda request é insegura -> loop de redirect.
+# Exige Nginx enviando "X-Forwarded-Proto $scheme" (já confirmado).
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=True, cast=bool)
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=63072000, cast=int)  # 2 anos
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# django-axes — proteção de brute force no /admin/login/
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = 1  # horas
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
