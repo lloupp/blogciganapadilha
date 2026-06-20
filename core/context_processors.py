@@ -6,4 +6,5 @@ def google_analytics(request):
     return {
         'GOOGLE_ANALYTICS_ID': settings.GOOGLE_ANALYTICS_ID,
         'CHATWOOT_TOKEN': settings.CHATWOOT_TOKEN,
+        'CHATWOOT_URL': settings.CHATWOOT_URL,
     }
