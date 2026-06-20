@@ -127,6 +127,25 @@
     </footer>
 
     <script src="{% static 'js/main.js' %}"></script>
+
+    <!-- Chatwoot Widget -->
+    {% if CHATWOOT_TOKEN %}
+    <script>
+        window.chatwootSettings = {
+            position: "right",
+            type: "standard",
+            launcherTitle: "Falar com a Cigana 🔮"
+        };
+        (function(d,t) {
+            var g = d.createElement(t), s = d.getElementsByTagName(t)[0];
+            g.src = "https://app.chatwoot.com/widget";
+            g.async = true;
+            g.setAttribute('data-cw-token', '{{ CHATWOOT_TOKEN }}');
+            s.parentNode.insertBefore(g,s);
+        })(document, "script");
+    </script>
+    {% endif %}
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

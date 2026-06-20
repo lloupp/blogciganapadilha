@@ -113,6 +113,11 @@ ADMIN_INDEX_TITLE = 'Gerenciar Conteúdo'
 GOOGLE_ANALYTICS_ID = config('GOOGLE_ANALYTICS_ID', default='')
 
 # ============================================================
+# Chatwoot
+# ============================================================
+CHATWOOT_TOKEN = config('CHATWOOT_TOKEN', default='')
+
+# ============================================================
 # Segurança — Produção
 # ============================================================
 
