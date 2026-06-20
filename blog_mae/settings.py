@@ -62,6 +62,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.google_analytics',
             ],
         },
     },
@@ -105,6 +106,11 @@ LOGOUT_REDIRECT_URL = 'core:home'
 ADMIN_SITE_HEADER = '✨ Blog Cigana Padilha - Admin'
 ADMIN_SITE_TITLE = 'Painel Admin'
 ADMIN_INDEX_TITLE = 'Gerenciar Conteúdo'
+
+# ============================================================
+# Google Analytics
+# ============================================================
+GOOGLE_ANALYTICS_ID = config('GOOGLE_ANALYTICS_ID', default='')
 
 # ============================================================
 # Segurança — Produção

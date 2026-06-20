@@ -16,6 +16,17 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
     {% block extra_head %}{% endblock %}
+
+    <!-- Google Analytics (GA4) -->
+    {% if GOOGLE_ANALYTICS_ID %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ GOOGLE_ANALYTICS_ID }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ GOOGLE_ANALYTICS_ID }}');
+    </script>
+    {% endif %}
 </head>
 <body>
     <!-- Background mystical elements -->
@@ -54,7 +65,7 @@
                 <button type="submit" class="search-btn" aria-label="Buscar">🔍</button>
             </form>
 
-            <a href="/admin/" class="admin-link" target="_blank" rel="noopener">✨ Admin</a>
+<!-- Link admin removido por segurança (acesso só via /admin/ direto) -->
 
             <button type="button" class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="mainNav">
                 <span></span><span></span><span></span>
@@ -109,7 +120,7 @@
             </div>
 
             <div class="footer-bottom">
-                <p>&copy; 2024 Blog Cigana Padilha. Todos os direitos reservados.</p>
+                <p>&copy; 2026 Blog Cigana Padilha. Todos os direitos reservados.</p>
                 <p class="blessing">Que as estrelas guiem seu caminho 🌟</p>
             </div>
         </div>

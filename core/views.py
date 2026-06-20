@@ -1,7 +1,69 @@
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import HttpResponse
+from django.urls import reverse
 from .models import Post, Categoria, Tag
+
+
+def robots_txt(request):
+    lines = [
+        'User-agent: *',
+        'Disallow: /admin/',
+        'Allow: /',
+        '',
+        f'Sitemap: {request.build_absolute_uri(reverse("core:sitemap"))}',
+    ]
+    return HttpResponse('\n'.join(lines), content_type='text/plain')
+
+
+def sitemap_xml(request):
+    """Sitemap XML simples sem depender do framework de sitemaps."""
+    from django.utils import timezone
+    import xml.etree.ElementTree as ET
+
+    now = timezone.now().strftime('%Y-%m-%d')
+
+    urlset = ET.Element('urlset', xmlns='http://www.sitemaps.org/schemas/sitemap/0.9')
+
+    # Páginas estáticas
+    static_pages = [
+        ('core:home', '0.8', 'daily'),
+        ('core:post_list', '0.6', 'weekly'),
+    ]
+    for name, priority, freq in static_pages:
+        url = ET.SubElement(urlset, 'url')
+        loc = ET.SubElement(url, 'loc')
+        loc.text = request.build_absolute_uri(reverse(name))
+        changefreq = ET.SubElement(url, 'changefreq')
+        changefreq.text = freq
+        prio = ET.SubElement(url, 'priority')
+        prio.text = priority
+
+    # Posts publicados
+    for post in Post.objects.filter(status='publicado'):
+        url = ET.SubElement(urlset, 'url')
+        loc = ET.SubElement(url, 'loc')
+        loc.text = request.build_absolute_uri(post.get_absolute_url())
+        lastmod = ET.SubElement(url, 'lastmod')
+        lastmod.text = post.data_atualizacao.strftime('%Y-%m-%d')
+        changefreq = ET.SubElement(url, 'changefreq')
+        changefreq.text = 'weekly'
+        prio = ET.SubElement(url, 'priority')
+        prio.text = '0.8'
+
+    # Categorias ativas
+    for cat in Categoria.objects.filter(ativo=True):
+        url = ET.SubElement(urlset, 'url')
+        loc = ET.SubElement(url, 'loc')
+        loc.text = request.build_absolute_uri(cat.get_absolute_url())
+        changefreq = ET.SubElement(url, 'changefreq')
+        changefreq.text = 'monthly'
+        prio = ET.SubElement(url, 'priority')
+        prio.text = '0.5'
+
+    xml_str = ET.tostring(urlset, encoding='unicode')
+    return HttpResponse(xml_str, content_type='application/xml')
 
 
 def home(request):

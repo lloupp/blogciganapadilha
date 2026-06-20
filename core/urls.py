@@ -5,6 +5,8 @@ app_name = 'core'
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('robots.txt', views.robots_txt, name='robots'),
+    path('sitemap.xml', views.sitemap_xml, name='sitemap'),
     path('blog/', views.post_list, name='post_list'),
     path('busca/', views.post_list, name='busca'),
     path('categoria/<slug:slug>/', views.categoria_detail, name='categoria_detail'),
