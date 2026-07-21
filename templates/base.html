@@ -137,11 +137,18 @@
             launcherTitle: "Falar com a Cigana 🔮"
         };
         (function(d,t) {
+            var BASE_URL = "{{ CHATWOOT_URL }}";
             var g = d.createElement(t), s = d.getElementsByTagName(t)[0];
-            g.src = "{{ CHATWOOT_URL }}/widget";
+            g.src = BASE_URL + "/packs/js/sdk.js";
+            g.defer = true;
             g.async = true;
-            g.setAttribute('data-cw-token', '{{ CHATWOOT_TOKEN }}');
-            s.parentNode.insertBefore(g,s);
+            s.parentNode.insertBefore(g, s);
+            g.onload = function() {
+                window.chatwootSDK.run({
+                    websiteToken: "{{ CHATWOOT_TOKEN }}",
+                    baseUrl: BASE_URL
+                });
+            };
         })(document, "script");
     </script>
     {% endif %}

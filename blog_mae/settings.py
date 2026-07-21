@@ -116,7 +116,7 @@ GOOGLE_ANALYTICS_ID = config('GOOGLE_ANALYTICS_ID', default='')
 # Chatwoot
 # ============================================================
 CHATWOOT_TOKEN = config('CHATWOOT_TOKEN', default='')
-CHATWOOT_URL = config('CHATWOOT_URL', default='https://chat.blogciganapadilha.com.br')
+CHATWOOT_URL = config('CHATWOOT_URL', default='https://app.chatwoot.com')
 
 # ============================================================
 # Segurança — Produção
