@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}🔮 Consultas Online - Blog Cigana Padilha{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">🔮 Consultas Online</h1>
+    <p class="page-subtitle">Escolha o tipo de consulta e faça o pagamento com segurança pelo Mercado Pago</p>
+</div>
+
+{% if not mp_configurado %}
+<div class="messages">
+    <div class="message message-warning">⚠️ O pagamento online ainda está sendo configurado. Volte em breve.</div>
+</div>
+{% endif %}
+
+<div class="posts-grid">
+    {% for tipo in tipos %}
+    <article class="post-card">
+        <div class="card-image card-image-placeholder">
+            <span class="placeholder-icon">{{ tipo.icone }}</span>
+        </div>
+        <div class="card-body">
+            <h3 class="card-title">
+                <a href="{{ tipo.get_absolute_url }}">{{ tipo.nome }}</a>
+            </h3>
+            {% if tipo.descricao %}
+            <p class="card-text">{{ tipo.descricao|truncatechars:140 }}</p>
+            {% endif %}
+            <div class="card-meta">
+                <span>⏱️ {{ tipo.duracao_minutos }} min</span>
+                <span>💰 R$ {{ tipo.preco }}</span>
+            </div>
+            <a href="{{ tipo.get_absolute_url }}" class="btn btn-primary">Agendar consulta</a>
+        </div>
+    </article>
+    {% empty %}
+    <div class="empty-state">
+        <p>🌀 Nenhum tipo de consulta disponível no momento.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

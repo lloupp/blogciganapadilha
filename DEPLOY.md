@@ -66,7 +66,13 @@ CSRF_TRUSTED_ORIGINS=https://blogciganapadilha.com.br,https://www.blogciganapadi
 SECURE_SSL_REDIRECT=False
 GOOGLE_ANALYTICS_ID=<seu ID GA4, se usar>
 CHATWOOT_TOKEN=<website token da conta Chatwoot Cloud>
+MERCADOPAGO_ACCESS_TOKEN=<access token da conta Mercado Pago>
+MERCADOPAGO_PUBLIC_KEY=<public key da conta Mercado Pago>
 ```
+
+Enquanto `MERCADOPAGO_ACCESS_TOKEN` estiver vazio, a página de consultas
+(`/consultas/`) avisa que o pagamento ainda não está disponível em vez de
+quebrar — dá pra subir o site sem isso configurado e ativar depois.
 
 **`SECURE_SSL_REDIRECT=False` é importante aqui**: a TLS é terminada pela
 Cloudflare antes de chegar no `cloudflared`, que entrega HTTP puro pro
@@ -84,7 +90,34 @@ Não é necessário self-host. Basta:
 3. `CHATWOOT_URL` já tem como padrão `https://app.chatwoot.com` — não precisa
    declarar no `.env` a menos que queira sobrescrever.
 
-## 5. Rodar o servidor
+## 5. Consultas online (Mercado Pago)
+
+O fluxo em `/consultas/` funciona assim: o cliente escolhe um tipo de
+consulta cadastrado no admin (Admin → Tipos de Consulta), preenche nome/e-mail/
+WhatsApp e é redirecionado para o Checkout Pro do Mercado Pago (página
+hospedada por eles — cartão, Pix, boleto). Depois de pago, o Mercado Pago
+chama de volta a `notification_url` (`/consultas/webhook/mercadopago/`), o
+Django confirma o pagamento consultando a API do Mercado Pago diretamente
+(nunca confia no que chega na notificação em si) e marca a consulta como
+paga no admin. O contato com o cliente pra combinar o horário é manual, via
+WhatsApp/Chatwoot.
+
+Passos:
+
+1. Criar/entrar na conta em https://www.mercadopago.com.br, ir em
+   "Seu negócio" → "Configurações" → "Credenciais" e pegar o **Access Token**
+   e a **Public Key** (comece pelas credenciais de teste/sandbox antes de ir
+   pra produção).
+2. Colocar em `MERCADOPAGO_ACCESS_TOKEN` / `MERCADOPAGO_PUBLIC_KEY` no `.env`.
+3. Cadastrar os tipos de consulta em Admin → Tipos de Consulta (nome, preço,
+   duração, ícone).
+4. Como a `notification_url` é montada a partir do domínio da própria
+   requisição, ela só funciona depois que o Cloudflare Tunnel estiver de pé
+   e servindo `blogciganapadilha.com.br` — teste o fluxo completo (pagar com
+   um cartão de teste do Mercado Pago) só depois disso.
+5. Trocar para as credenciais de produção quando estiver tudo validado.
+
+## 6. Rodar o servidor
 
 ```bash
 source venv/bin/activate
@@ -96,7 +129,7 @@ gunicorn blog_mae.wsgi:application --bind 127.0.0.1:8000
 
 Em outro terminal, deixar o `cloudflared tunnel run blog-cigana` rodando.
 
-## 6. Disponibilidade
+## 7. Disponibilidade
 
 O site só responde enquanto o Gunicorn **e** o `cloudflared` estiverem
 rodando na sua máquina. Fechar o notebook, desligar ou perder a internet
@@ -117,3 +150,5 @@ sair da VPS (sempre online) para rodar local.
 - [ ] Backups periódicos de `db.sqlite3` e `media/` (rodando local, você é
       responsável pelo backup — a VPS não fazia isso magicamente, mas agora
       é ainda mais fácil esquecer)
+- [ ] Credenciais de **produção** do Mercado Pago (não as de teste) antes de
+      divulgar o link de consultas pra clientes reais
