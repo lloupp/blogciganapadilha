@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sitemaps',
     'core',
+    'consultas',
     'axes',
 ]
 
@@ -116,7 +117,15 @@ GOOGLE_ANALYTICS_ID = config('GOOGLE_ANALYTICS_ID', default='')
 # Chatwoot
 # ============================================================
 CHATWOOT_TOKEN = config('CHATWOOT_TOKEN', default='')
-CHATWOOT_URL = config('CHATWOOT_URL', default='https://chat.blogciganapadilha.com.br')
+CHATWOOT_URL = config('CHATWOOT_URL', default='https://app.chatwoot.com')
+
+# ============================================================
+# Mercado Pago (Checkout Pro — fluxo de consultas online)
+# ============================================================
+# Vazio por padrão: enquanto não configurado, a página de consultas
+# avisa que o pagamento está indisponível em vez de quebrar.
+MERCADOPAGO_ACCESS_TOKEN = config('MERCADOPAGO_ACCESS_TOKEN', default='')
+MERCADOPAGO_PUBLIC_KEY = config('MERCADOPAGO_PUBLIC_KEY', default='')
 
 # ============================================================
 # Segurança — Produção

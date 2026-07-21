@@ -12,6 +12,7 @@ admin.site.index_title = settings.ADMIN_INDEX_TITLE
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('consultas/', include('consultas.urls', namespace='consultas')),
     path('', include('core.urls', namespace='core')),
 ]
 

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}✅ Pagamento confirmado - Blog Cigana Padilha{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">✅ Pagamento confirmado!</h1>
+    <p class="page-subtitle">
+        Recebemos seu pagamento. Em breve entraremos em contato pelo WhatsApp
+        para combinar o horário da sua consulta.
+    </p>
+</div>
+<div style="text-align: center;">
+    <a href="{% url 'core:home' %}" class="btn btn-secondary">← Voltar para o blog</a>
+</div>
+{% endblock %}

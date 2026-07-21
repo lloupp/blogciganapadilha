@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}❌ Pagamento não concluído - Blog Cigana Padilha{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">❌ Pagamento não concluído</h1>
+    <p class="page-subtitle">
+        Algo impediu a conclusão do pagamento. Nenhum valor foi cobrado — você
+        pode tentar novamente quando quiser.
+    </p>
+</div>
+<div style="text-align: center;">
+    <a href="{% url 'consultas:lista' %}" class="btn btn-primary">Tentar novamente</a>
+    <a href="{% url 'core:home' %}" class="btn btn-secondary">← Voltar para o blog</a>
+</div>
+{% endblock %}

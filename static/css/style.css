@@ -1369,7 +1369,62 @@ input:focus-visible {
 }
 
 /* ---------------------------------------------------------
-   23. RESPONSIVE
+   23. FORMS — consultas
+   --------------------------------------------------------- */
+.consulta-form {
+    max-width: 520px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.consulta-summary {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--r-lg);
+    padding: 24px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.consulta-summary h2 {
+    font-family: var(--font-display);
+    color: var(--text-high);
+    margin-bottom: 8px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-mid);
+}
+
+.form-input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px solid var(--border-glass-strong);
+    background: var(--bg-elevated);
+    color: var(--text-high);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    border-radius: var(--r-md);
+    outline: none;
+    transition: border-color var(--t-base);
+}
+
+.form-input:focus {
+    border-color: var(--primary);
+}
+
+/* ---------------------------------------------------------
+   24. RESPONSIVE
    --------------------------------------------------------- */
 @media (max-width: 968px) {
     .footer-main {

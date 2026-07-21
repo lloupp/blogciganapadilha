@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}⏳ Pagamento pendente - Blog Cigana Padilha{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">⏳ Pagamento em análise</h1>
+    <p class="page-subtitle">
+        Seu pagamento está sendo processado (comum em boleto e Pix parcelado).
+        Assim que for aprovado, entraremos em contato pelo WhatsApp.
+    </p>
+</div>
+<div style="text-align: center;">
+    <a href="{% url 'core:home' %}" class="btn btn-secondary">← Voltar para o blog</a>
+</div>
+{% endblock %}
