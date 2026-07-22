@@ -129,31 +129,6 @@
 
     <script src="{% static 'js/main.js' %}"></script>
 
-    <!-- Chatwoot Widget -->
-    {% if CHATWOOT_TOKEN %}
-    <script>
-        window.chatwootSettings = {
-            position: "right",
-            type: "standard",
-            launcherTitle: "Falar com a Cigana 🔮"
-        };
-        (function(d,t) {
-            var BASE_URL = "{{ CHATWOOT_URL }}";
-            var g = d.createElement(t), s = d.getElementsByTagName(t)[0];
-            g.src = BASE_URL + "/packs/js/sdk.js";
-            g.defer = true;
-            g.async = true;
-            s.parentNode.insertBefore(g, s);
-            g.onload = function() {
-                window.chatwootSDK.run({
-                    websiteToken: "{{ CHATWOOT_TOKEN }}",
-                    baseUrl: BASE_URL
-                });
-            };
-        })(document, "script");
-    </script>
-    {% endif %}
-
     {% block extra_js %}{% endblock %}
 </body>
 </html>

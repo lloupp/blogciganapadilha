@@ -1,5 +1,6 @@
 import json
 import logging
+from urllib.parse import quote
 
 import mercadopago
 from django.conf import settings
@@ -104,7 +105,35 @@ def solicitar(request, slug):
 
 
 def sucesso(request):
-    return render(request, 'consultas/sucesso.html')
+    """Pagina de retorno de pagamento aprovado.
+
+    O Mercado Pago anexa `external_reference` na URL de retorno. Usamos essa
+    referencia para localizar a consulta e liberar o contato via WhatsApp
+    (so quem pagou chega aqui, pois o Checkout usa auto_return='approved').
+    """
+    consulta = None
+    whatsapp_url = ''
+
+    external_reference = request.GET.get('external_reference')
+    if external_reference:
+        try:
+            consulta = Consulta.objects.get(referencia=external_reference)
+        except (Consulta.DoesNotExist, ValueError):
+            consulta = None
+
+    if consulta and settings.WHATSAPP_NUMERO:
+        mensagem = (
+            f'Ola! Acabei de pagar a consulta "{consulta.tipo_consulta.nome}". '
+            f'Meu nome e {consulta.nome_cliente} e a referencia e '
+            f'{consulta.referencia}.'
+        )
+        whatsapp_url = f'https://wa.me/{settings.WHATSAPP_NUMERO}?text={quote(mensagem)}'
+
+    context = {
+        'consulta': consulta,
+        'whatsapp_url': whatsapp_url,
+    }
+    return render(request, 'consultas/sucesso.html', context)
 
 
 def pendente(request):

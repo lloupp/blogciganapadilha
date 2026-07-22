@@ -116,18 +116,18 @@ ADMIN_INDEX_TITLE = 'Gerenciar Conteúdo'
 GOOGLE_ANALYTICS_ID = config('GOOGLE_ANALYTICS_ID', default='')
 
 # ============================================================
-# Chatwoot
-# ============================================================
-CHATWOOT_TOKEN = config('CHATWOOT_TOKEN', default='')
-CHATWOOT_URL = config('CHATWOOT_URL', default='https://app.chatwoot.com')
-
-# ============================================================
 # Mercado Pago (Checkout Pro — fluxo de consultas online)
 # ============================================================
 # Vazio por padrão: enquanto não configurado, a página de consultas
 # avisa que o pagamento está indisponível em vez de quebrar.
 MERCADOPAGO_ACCESS_TOKEN = config('MERCADOPAGO_ACCESS_TOKEN', default='')
 MERCADOPAGO_PUBLIC_KEY = config('MERCADOPAGO_PUBLIC_KEY', default='')
+
+# ============================================================
+# WhatsApp (contato liberado após o pagamento da consulta)
+# ============================================================
+# Formato internacional só com dígitos, ex.: 5551999999999
+WHATSAPP_NUMERO = config('WHATSAPP_NUMERO', default='')
 
 # ============================================================
 # Segurança — Produção

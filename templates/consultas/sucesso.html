@@ -5,10 +5,29 @@
 <div class="page-header">
     <h1 class="page-title">✅ Pagamento confirmado!</h1>
     <p class="page-subtitle">
-        Recebemos seu pagamento. Em breve entraremos em contato pelo WhatsApp
-        para combinar o horário da sua consulta.
+        {% if whatsapp_url %}
+            Recebemos seu pagamento. Agora é só falar com a Cigana no WhatsApp
+            para combinar o horário da sua consulta.
+        {% else %}
+            Recebemos seu pagamento. Em breve entraremos em contato para
+            combinar o horário da sua consulta.
+        {% endif %}
     </p>
 </div>
+
+{% if whatsapp_url %}
+<div style="text-align: center; margin-bottom: 1.5rem;">
+    <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn btn-primary">
+        💬 Falar com a Cigana no WhatsApp
+    </a>
+    {% if consulta %}
+    <p class="page-subtitle" style="margin-top: 1rem; font-size: 0.9rem;">
+        Guarde sua referência: <strong>{{ consulta.referencia }}</strong>
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
 <div style="text-align: center;">
     <a href="{% url 'core:home' %}" class="btn btn-secondary">← Voltar para o blog</a>
 </div>
