@@ -10,6 +10,12 @@
     </p>
 </div>
 <div style="text-align: center;">
+    {% if consulta %}
+    <p class="page-subtitle" style="font-size: 0.9rem;">
+        Referência: <strong>{{ consulta.referencia }}</strong> —
+        <a href="{{ consulta.get_status_url }}">acompanhar minha consulta</a>
+    </p>
+    {% endif %}
     <a href="{% url 'consultas:lista' %}" class="btn btn-primary">Tentar novamente</a>
     <a href="{% url 'core:home' %}" class="btn btn-secondary">← Voltar para o blog</a>
 </div>

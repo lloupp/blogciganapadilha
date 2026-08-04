@@ -8,3 +8,7 @@ media/posts/*
 !media/posts/.gitkeep
 staticfiles/
 .DS_Store
+
+# Ferramentas de desenvolvimento
+.playwright-mcp/
+.pi/

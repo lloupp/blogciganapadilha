@@ -68,7 +68,12 @@ GOOGLE_ANALYTICS_ID=<seu ID GA4, se usar>
 CHATWOOT_TOKEN=<website token da conta Chatwoot Cloud>
 MERCADOPAGO_ACCESS_TOKEN=<access token da conta Mercado Pago>
 MERCADOPAGO_PUBLIC_KEY=<public key da conta Mercado Pago>
+WHATSAPP_NUMERO=<numero da cigana, so digitos com DDI, ex.: 5551999999999>
 ```
+
+`WHATSAPP_NUMERO` é obrigatório para o botão "Falar com a Cigana no WhatsApp"
+aparecer depois do pagamento aprovado — sem ele o cliente paga mas não recebe
+o link de contato.
 
 Enquanto `MERCADOPAGO_ACCESS_TOKEN` estiver vazio, a página de consultas
 (`/consultas/`) avisa que o pagamento ainda não está disponível em vez de
@@ -95,12 +100,14 @@ Não é necessário self-host. Basta:
 O fluxo em `/consultas/` funciona assim: o cliente escolhe um tipo de
 consulta cadastrado no admin (Admin → Tipos de Consulta), preenche nome/e-mail/
 WhatsApp e é redirecionado para o Checkout Pro do Mercado Pago (página
-hospedada por eles — cartão, Pix, boleto). Depois de pago, o Mercado Pago
+hospedada por eles — cartão e Pix; boleto fica desabilitado de propósito,
+porque levaria dias para compensar). Depois de pago, o Mercado Pago
 chama de volta a `notification_url` (`/consultas/webhook/mercadopago/`), o
 Django confirma o pagamento consultando a API do Mercado Pago diretamente
 (nunca confia no que chega na notificação em si) e marca a consulta como
-paga no admin. O contato com o cliente pra combinar o horário é manual, via
-WhatsApp/Chatwoot.
+paga no admin. Com o pagamento aprovado, a página de sucesso (e a página de
+acompanhamento `/consultas/status/<referencia>/`) libera o botão de WhatsApp
+para o cliente combinar o horário — o contato em si continua manual.
 
 Passos:
 
@@ -116,6 +123,39 @@ Passos:
    e servindo `blogciganapadilha.com.br` — teste o fluxo completo (pagar com
    um cartão de teste do Mercado Pago) só depois disso.
 5. Trocar para as credenciais de produção quando estiver tudo validado.
+
+### Roteiro de teste de ponta a ponta (credenciais de teste)
+
+Antes de divulgar (ou depois de mexer no fluxo), rode este roteiro completo:
+
+1. Garanta que o `.env` está com as credenciais de **teste** do Mercado Pago
+   (`MERCADOPAGO_ACCESS_TOKEN` / `MERCADOPAGO_PUBLIC_KEY`) e reinicie o
+   serviço: `sudo systemctl restart blog-mae`. Os units instalados chamam-se
+   `blog-mae.service` e `blog-mae-tunnel.service` (os arquivos em `scripts/`
+   têm o prefixo `system-`, mas são instalados sem ele).
+2. Confirme o túnel ativo (`systemctl status blog-mae-tunnel`) e o
+   site acessível em `https://blogciganapadilha.com.br`.
+3. **Aprovado**: em `/consultas/`, escolha um tipo, preencha o formulário
+   (WhatsApp com máscara, ex. `(51) 99999-9999`) e pague com um cartão de
+   teste (ex.: Visa `4235 6477 2802 5682`, validade futura, CVV `123`,
+   CPF `123.456.789-09`) usando o titular `APRO`. Deve voltar para a página
+   de sucesso com o botão de WhatsApp; no admin, a consulta fica "Pago" com
+   `mp_payment_id` preenchido e o WhatsApp normalizado (ex.:
+   `5551999999999`). Os logs ficam em `journalctl -u blog-mae -f`.
+4. **Recusado**: repita com titular `OTHE`. Deve cair na página de erro com
+   o link "acompanhar minha consulta"; a página de status não mostra o
+   botão de WhatsApp; abrir manualmente
+   `/consultas/sucesso/?external_reference=<referencia>` deve redirecionar
+   para a página de status **sem** liberar o botão.
+5. **Pendente**: use o titular `CONT` (pagamento em análise). Deve cair na
+   página de pendente com o link de acompanhamento; a página de status
+   atualiza sozinha até o webhook aprovar. Confira também que **boleto não
+   aparece** entre os meios de pagamento oferecidos.
+6. **Limite de tentativas**: envie o formulário 6 vezes seguidas — a partir
+   da 6ª aparece a mensagem de "muitas tentativas".
+7. Depois de validar, apague as consultas de teste no admin e, quando as
+   credenciais produtivas estiverem ativas, troque as duas chaves no `.env`
+   e reinicie o serviço.
 
 ## 6. Rodar o servidor
 

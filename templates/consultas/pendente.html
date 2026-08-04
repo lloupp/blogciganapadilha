@@ -5,11 +5,17 @@
 <div class="page-header">
     <h1 class="page-title">⏳ Pagamento em análise</h1>
     <p class="page-subtitle">
-        Seu pagamento está sendo processado (comum em boleto e Pix parcelado).
-        Assim que for aprovado, entraremos em contato pelo WhatsApp.
+        Seu pagamento está sendo processado. Assim que for aprovado, você
+        poderá falar com a Cigana pelo WhatsApp.
     </p>
 </div>
 <div style="text-align: center;">
+    {% if consulta %}
+    <p class="page-subtitle" style="font-size: 0.9rem;">
+        Referência: <strong>{{ consulta.referencia }}</strong>
+    </p>
+    <a href="{{ consulta.get_status_url }}" class="btn btn-primary">Acompanhar minha consulta</a>
+    {% endif %}
     <a href="{% url 'core:home' %}" class="btn btn-secondary">← Voltar para o blog</a>
 </div>
 {% endblock %}

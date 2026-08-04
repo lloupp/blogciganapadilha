@@ -14,13 +14,17 @@ class TipoConsultaAdmin(admin.ModelAdmin):
 
 @admin.register(Consulta)
 class ConsultaAdmin(admin.ModelAdmin):
-    list_display = ['nome_cliente', 'tipo_consulta', 'valor', 'status', 'whatsapp_cliente', 'criado_em']
-    list_filter = ['status', 'tipo_consulta']
+    list_display = [
+        'nome_cliente', 'tipo_consulta', 'valor', 'status', 'pagamento_divergente',
+        'whatsapp_cliente', 'referencia', 'criado_em',
+    ]
+    list_filter = ['status', 'pagamento_divergente', 'tipo_consulta']
     search_fields = ['nome_cliente', 'email_cliente', 'whatsapp_cliente', 'referencia']
     date_hierarchy = 'criado_em'
     readonly_fields = [
         'referencia', 'tipo_consulta', 'nome_cliente', 'email_cliente', 'whatsapp_cliente',
-        'valor', 'mp_preference_id', 'mp_payment_id', 'criado_em', 'atualizado_em',
+        'valor', 'pagamento_divergente', 'mp_preference_id', 'mp_payment_id',
+        'criado_em', 'atualizado_em',
     ]
 
     def has_add_permission(self, request):

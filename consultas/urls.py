@@ -10,5 +10,6 @@ urlpatterns = [
     path('pendente/', views.pendente, name='pendente'),
     path('erro/', views.erro, name='erro'),
     path('webhook/mercadopago/', views.webhook, name='webhook'),
+    path('status/<uuid:referencia>/', views.status, name='status'),
     path('<slug:slug>/', views.solicitar, name='solicitar'),
 ]

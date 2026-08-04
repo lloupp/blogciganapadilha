@@ -52,6 +52,7 @@ class Consulta(models.Model):
     whatsapp_cliente = models.CharField('WhatsApp', max_length=30)
     valor = models.DecimalField('Valor (R$)', max_digits=8, decimal_places=2)
     status = models.CharField('Status', max_length=10, choices=STATUS_CHOICES, default='pendente')
+    pagamento_divergente = models.BooleanField('Pagamento com valor divergente', default=False)
     mp_preference_id = models.CharField('ID da preferência (Mercado Pago)', max_length=100, blank=True)
     mp_payment_id = models.CharField('ID do pagamento (Mercado Pago)', max_length=100, blank=True)
     criado_em = models.DateTimeField('Criado em', auto_now_add=True)
@@ -64,3 +65,18 @@ class Consulta(models.Model):
 
     def __str__(self):
         return f'{self.nome_cliente} — {self.tipo_consulta.nome} ({self.get_status_display()})'
+
+    def pode_transicionar(self, novo_status):
+        """Uma consulta aprovada só pode ser cancelada (refund/chargeback).
+
+        Evita que uma notificação atrasada do Mercado Pago rebaixe uma
+        consulta já paga para pendente/rejeitado.
+        """
+        if novo_status not in dict(self.STATUS_CHOICES):
+            return False
+        if self.status == 'aprovado':
+            return novo_status in ('aprovado', 'cancelado')
+        return True
+
+    def get_status_url(self):
+        return reverse('consultas:status', kwargs={'referencia': self.referencia})
