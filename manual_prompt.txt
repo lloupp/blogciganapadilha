@@ -1,0 +1,20 @@
+Crie um MANUAL DE USO COMPLETO do painel administrativo deste projeto Django ("Blog da Mãe" / Blog Cigana Padilha — site de tarô e esoterismo, em português brasileiro). O manual será entregue à mãe do dono, uma pessoa leiga em tecnologia, então use linguagem simples, passo a passo, sem jargão.
+
+Explore o código (core/models.py, core/admin.py, consultas/models.py, consultas/admin.py, consultas/forms.py, urls, templates, settings.py, DEPLOY.md) para entender TODAS as funcionalidades de admin antes de escrever. O painel admin fica em /admin/ e os campos são definidos nos admin.py. Documente com fidelidade o que o código realmente faz (nomes de campos, ações, permissões).
+
+O manual DEVE cobrir, em seções numeradas e claras:
+
+1. **Login no painel admin** — como acessar, como mudar a senha.
+2. **Criar uma postagem** — todos os campos do formulário (Título, Subtítulo, Conteúdo, Imagem de destaque, URL do YouTube, Categoria, Tags, Status Rascunho/Publicado, Destaque na home, Tempo de leitura), explicando cada um e dica prática.
+3. **Editar uma postagem / gerenciar posts existentes** — lista, busca, filtros, excluir, rascunho vs publicado.
+4. **Trocar o valor de consulta (preço)** — via "Tipos de Consulta": onde clicar, como mudar nome, preço (R$), duração, ativo/inativo, ordem. IMPORTANTE: explicar que o novo valor vale para novas consultas.
+5. **Categorias** — criar/editar (nome, descrição, ícone emoji, ordem, ativo).
+6. **Tags** — criar/editar.
+7. **Consultas recebidas (pagamentos)** — ver a lista de consultas agendadas, status (Aguardando pagamento/Pago/Recusado/Cancelado), como identificar pagamento divergente, dados do cliente. Explicar que são somente leitura e são criadas automaticamente.
+8. **Dicas de segurança e boas práticas** — mudar senha do admin, não compartilhar, cuidado ao excluir.
+
+ENTREGA: gere DUAS versões como arquivos .md na pasta atual (raiz do projeto ~/projetos/blog_mae):
+  - MANUAL_COM_IMAGENS.md  → texto com instruções e, onde fizer sentido, anotações tipo "[IMAGEM: tela de login]" como marcadores claros indicando onde a pessoa deve inserir cada print (NÃO tente gerar imagens, apenas deixe os marcadores de lugar).
+  - MANUAL_SEM_IMAGENS.md → o mesmo conteúdo, porém 100% texto, sem nenhum marcador de imagem; capriche em descrições verbais detalhadas.
+
+O conteúdo das duas versões deve ser idêntico em cobertura e qualidade; só muda o meio (marcadores de imagem vs texto puro). Escreva em português claro e acolhedor. Ao terminar, confirme os caminhos dos dois arquivos criados e um resumo das seções.

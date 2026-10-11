@@ -1,0 +1,30 @@
+[Unit]
+Description=Blog da Mae - Cloudflare Tunnel
+After=network.target
+
+[Service]
+User=eduardodlima
+Group=eduardodlima
+ExecStart=/usr/local/bin/cloudflared tunnel --config /home/eduardodlima/.cloudflared/config.yml run blog-cigana
+Restart=on-failure
+RestartSec=5
+
+# --- Isolamento (sandbox) ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+# Esconde /home inteiro e traz de volta SO as credenciais do tunnel (leitura):
+TemporaryFileSystem=/home:ro
+BindReadOnlyPaths=/home/eduardodlima/.cloudflared
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

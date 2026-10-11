@@ -1,0 +1,33 @@
+[Unit]
+Description=Blog da Mae - Gunicorn
+After=network.target
+
+[Service]
+User=eduardodlima
+Group=eduardodlima
+WorkingDirectory=/home/eduardodlima/projetos/blog_mae
+ExecStart=/home/eduardodlima/projetos/blog_mae/venv/bin/python -m gunicorn blog_mae.wsgi:application --bind 127.0.0.1:8000
+Restart=on-failure
+RestartSec=5
+
+# --- Isolamento (sandbox): mesmo com invasao no app, o processo NAO le seu /home ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+# Esconde /home inteiro (tmpfs vazio) e traz de volta SO o diretorio do projeto:
+TemporaryFileSystem=/home:ro
+BindPaths=/home/eduardodlima/projetos/blog_mae
+# O interpretador Python do venv mora fora do projeto (uv) — liberar so leitura:
+BindReadOnlyPaths=/home/eduardodlima/.local/share/uv/python
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target
