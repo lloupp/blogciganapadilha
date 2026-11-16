@@ -1,31 +1,32 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}✅ Pagamento confirmado - Blog Cigana Padilha{% endblock %}
+
+{% block extra_head %}
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=3">
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">✅ Pagamento confirmado!</h1>
     <p class="page-subtitle">
-        {% if whatsapp_url %}
-            Recebemos seu pagamento. Agora é só falar com a Cigana no WhatsApp
-            para combinar o horário da sua consulta.
+        {% if chat_url %}
+            Recebemos seu pagamento. Obrigada pela confiança! 🌙
         {% else %}
-            Recebemos seu pagamento. Em breve entraremos em contato para
-            combinar o horário da sua consulta.
+            Recebemos seu pagamento. Em breve entraremos em contato sobre a sua consulta.
         {% endif %}
     </p>
 </div>
 
-{% if whatsapp_url %}
-<div style="text-align: center; margin-bottom: 1.5rem;">
-    <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn btn-primary">
-        💬 Falar com a Cigana no WhatsApp
-    </a>
-    {% if consulta %}
-    <p class="page-subtitle" style="margin-top: 1rem; font-size: 0.9rem;">
-        Guarde sua referência: <strong>{{ consulta.referencia }}</strong>
-    </p>
-    {% endif %}
-</div>
+{% if chat_url %}
+    {% include 'consultas/_chat_cta.html' %}
+{% endif %}
+
+{% if consulta %}
+<p class="page-subtitle chat-cta-ref">
+    Consulta: <strong>{{ consulta.tipo_consulta.nome }}</strong> — referência <strong>{{ consulta.referencia }}</strong>
+</p>
 {% endif %}
 
 <div style="text-align: center;">

@@ -73,6 +73,22 @@ def _whatsapp_url(consulta):
     return f'https://wa.me/{settings.WHATSAPP_NUMERO}?text={quote(mensagem)}'
 
 
+def _chat_context(consulta):
+    """Link e estado do chat para as páginas de sucesso/status (só aprovado)."""
+    if consulta is None or consulta.status != 'aprovado':
+        return {'chat_url': '', 'chat_status': ''}
+    try:
+        conversa = consulta.conversa
+    except Conversa.DoesNotExist:
+        conversa = None
+    else:
+        conversa.expirar_se_preciso()
+    return {
+        'chat_url': reverse('consultas:chat', kwargs={'referencia': consulta.referencia}),
+        'chat_status': conversa.status if conversa else Conversa.STATUS_AGUARDANDO,
+    }
+
+
 def _aplicar_pagamento(consulta, payment):
     """Aplica um pagamento (já rebuscado autenticado na API) à consulta.
 
@@ -207,7 +223,7 @@ def sucesso(request):
     external_reference = request.GET.get('external_reference')
     consulta = _buscar_consulta(external_reference)
     if consulta is None:
-        return render(request, 'consultas/sucesso.html', {'consulta': None, 'whatsapp_url': ''})
+        return render(request, 'consultas/sucesso.html', {'consulta': None, 'whatsapp_url': '', 'chat_url': ''})
 
     payment_id = request.GET.get('payment_id') or request.GET.get('collection_id')
     if consulta.status != 'aprovado' and payment_id:
@@ -227,6 +243,7 @@ def sucesso(request):
     context = {
         'consulta': consulta,
         'whatsapp_url': _whatsapp_url(consulta),
+        **_chat_context(consulta),
     }
     return render(request, 'consultas/sucesso.html', context)
 
@@ -245,6 +262,7 @@ def status(request, referencia):
         'whatsapp_url': _whatsapp_url(consulta) if aprovado else '',
         'auto_refresh': auto_refresh,
         'proxima_url': f'{consulta.get_status_url()}?t={tentativa + 1}',
+        **_chat_context(consulta),
     }
     return render(request, 'consultas/status.html', context)
 

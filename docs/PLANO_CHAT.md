@@ -2,7 +2,7 @@
 
 > Projeto: **Blog Cigana Padilha** (`blog_mae`)
 > Objetivo: substituir o handoff por WhatsApp por um **chat dentro do site**, entre a cliente e a atendente, com duração controlada pela consulta já paga.
-> Status: **Fases 1, 2 e 3 concluídas** (16/11/2026) · extensão de tempo **grátis na v1** (seção 15)
+> Status: **Fases 1 a 4 concluídas** (16/11/2026) · extensão de tempo **grátis na v1** (seção 15)
 
 ---
 
@@ -280,10 +280,12 @@ Todas exigem `staff`. POST exige CSRF (`X-CSRFToken`).
 
 ### Fase 4 — Integração e acabamento (≈2 h)
 
-- [ ] CTA "Entrar no chat" em `sucesso.html` e `status.html`
-- [ ] WhatsApp como alternativa (sem remover)
-- [ ] Revisão mobile (teclado, altura de viewport, safe-area)
-- [ ] Textos e estados vazios
+- [x] CTA "Entrar no chat" em `sucesso.html` e `status.html` (vira "Ver conversa" quando encerrada)
+- [x] WhatsApp como alternativa (sem remover)
+- [x] Revisão mobile: altura com `dvh` + `visualViewport` para o teclado, safe-area, e logo do cabeçalho não fica mais sob a lupa
+- [x] Textos e estados vazios (aviso específico quando a Cigana está offline)
+
+> Pendente de conferir em aparelho real: o teclado do iOS/Android não é simulável no navegador de teste.
 
 **Aceite:** pós-pagamento leva ao chat em 1 clique; WhatsApp continua disponível.
 

@@ -1489,6 +1489,30 @@ input:focus-visible {
         gap: 12px;
     }
 
+    /* O input de busca fica com largura 0 fechado e o botão é absoluto:
+       sem largura mínima o 🔍 invadia o logo. */
+    .logo {
+        flex-shrink: 1;
+        min-width: 0;
+    }
+
+    .logo-text {
+        min-width: 0;
+    }
+
+    .logo-main,
+    .logo-sub {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .search-form {
+        margin-left: auto;
+        min-width: 32px;
+        min-height: 32px;
+    }
+
     .nav-toggle {
         display: flex;
     }
@@ -1547,6 +1571,19 @@ input:focus-visible {
 }
 
 @media (max-width: 480px) {
+    .logo-main {
+        font-size: 1.05rem;
+    }
+
+    .logo-sub {
+        letter-spacing: 1.5px;
+    }
+
+    .search-form:hover .search-input,
+    .search-input:focus {
+        width: 140px;
+    }
+
     .hero {
         padding: 64px 16px 44px;
     }

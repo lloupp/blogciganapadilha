@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}🔮 Acompanhar consulta - Blog Cigana Padilha{% endblock %}
 
 {% block extra_head %}
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=3">
 {% if auto_refresh %}<meta http-equiv="refresh" content="7;url={{ proxima_url }}">{% endif %}
 {% endblock %}
 
@@ -9,17 +12,10 @@
 {% if consulta.status == 'aprovado' %}
 <div class="page-header">
     <h1 class="page-title">✅ Pagamento confirmado!</h1>
-    <p class="page-subtitle">
-        Recebemos seu pagamento. Agora é só falar com a Cigana no WhatsApp
-        para combinar o horário da sua consulta.
-    </p>
+    <p class="page-subtitle">Recebemos seu pagamento. Obrigada pela confiança! 🌙</p>
 </div>
-{% if whatsapp_url %}
-<div style="text-align: center; margin-bottom: 1.5rem;">
-    <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn btn-primary">
-        💬 Falar com a Cigana no WhatsApp
-    </a>
-</div>
+{% if chat_url %}
+    {% include 'consultas/_chat_cta.html' %}
 {% endif %}
 {% elif consulta.status == 'pendente' %}
 <div class="page-header">
@@ -48,8 +44,8 @@
 <div style="text-align: center;">
     <p class="page-subtitle" style="font-size: 0.9rem;">
         Consulta: <strong>{{ consulta.tipo_consulta.nome }}</strong> —
-        referência <strong>{{ consulta.referencia }}</strong><br>
-        Guarde o link desta página para acompanhar sua consulta.
+        referência <strong>{{ consulta.referencia }}</strong>
+        {% if consulta.status != 'aprovado' %}<br>Guarde o link desta página para acompanhar sua consulta.{% endif %}
     </p>
     <a href="{% url 'core:home' %}" class="btn btn-secondary">← Voltar para o blog</a>
 </div>

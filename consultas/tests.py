@@ -35,6 +35,7 @@ def _payment(consulta, status='approved', valor=None, payment_id='pay-1'):
     SECURE_SSL_REDIRECT=False,
     MERCADOPAGO_ACCESS_TOKEN='TEST-token',
     WHATSAPP_NUMERO='5551999999999',
+    STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage',
 )
 class ConsultasTestCase(TestCase):
     def setUp(self):
@@ -534,3 +535,41 @@ class PainelTests(TestCase):
         client.force_login(self.staff)
         resp = client.post(self._url('painel_iniciar'), data='{}', content_type='application/json')
         self.assertEqual(resp.status_code, 403)
+
+
+class ChatCtaTests(ConsultasTestCase):
+    def _chat_url(self, consulta):
+        return reverse('consultas:chat', args=[consulta.referencia])
+
+    def test_status_aprovado_mostra_chat_e_whatsapp(self):
+        consulta = self._criar_consulta(status='aprovado')
+        resp = self.client.get(consulta.get_status_url())
+        self.assertContains(resp, self._chat_url(consulta))
+        self.assertContains(resp, 'Entrar no chat')
+        self.assertContains(resp, 'wa.me/5551999999999')
+        self.assertContains(resp, 'noindex, nofollow')
+
+    def test_status_pendente_nao_mostra_chat(self):
+        consulta = self._criar_consulta()
+        resp = self.client.get(consulta.get_status_url())
+        self.assertNotContains(resp, self._chat_url(consulta))
+
+    @mock.patch('consultas.views.mercadopago.SDK')
+    def test_sucesso_aprovado_leva_ao_chat(self, sdk_cls):
+        consulta = self._criar_consulta()
+        sdk_cls.return_value = _mock_sdk(payment=_payment(consulta, status='approved'))
+        resp = self.client.get(
+            reverse('consultas:sucesso') + f'?external_reference={consulta.referencia}&payment_id=pay-1'
+        )
+        self.assertContains(resp, self._chat_url(consulta))
+        self.assertContains(resp, 'Entrar no chat')
+
+    def test_conversa_encerrada_mostra_ver_conversa(self):
+        consulta = self._criar_consulta(status='aprovado')
+        conversa = Conversa.objects.create(consulta=consulta)
+        conversa.iniciar()
+        conversa.encerrar()
+        resp = self.client.get(consulta.get_status_url())
+        self.assertContains(resp, 'Ver conversa')
+        self.assertContains(resp, self._chat_url(consulta))
+        self.assertNotContains(resp, 'Entrar no chat')

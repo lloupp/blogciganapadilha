@@ -11,6 +11,7 @@
     var AVISOS = {
         cliente: {
             aguardando: 'A Cigana foi avisada e vai iniciar seu atendimento. Você já pode escrever: o tempo só começa a contar quando ela iniciar.',
+            aguardando_offline: 'A Cigana está offline agora, mas sua consulta está garantida. Deixe sua pergunta: ela inicia o atendimento assim que entrar, e o tempo só começa a contar a partir daí.',
             ativa: '',
             expirada: 'O tempo da consulta acabou.',
             encerrada: 'O atendimento foi encerrado.'
@@ -88,6 +89,38 @@
         document.addEventListener('visibilitychange', function () {
             if (!document.hidden) { self.poll(); }
         });
+
+        // Celular: o teclado não encolhe 100dvh no iOS. Ajusta a altura do
+        // chat à área visível para a caixa de texto não sumir atrás dele.
+        if (window.visualViewport && this.papel === 'cliente') {
+            var ajustar = function () { self._ajustarAoTeclado(); };
+            window.visualViewport.addEventListener('resize', ajustar);
+            window.addEventListener('orientationchange', ajustar);
+            if (this.el.texto) {
+                this.el.texto.addEventListener('focus', function () { setTimeout(ajustar, 300); });
+                this.el.texto.addEventListener('blur', function () { setTimeout(ajustar, 300); });
+            }
+        }
+    };
+
+    Chat.prototype._ajustarAoTeclado = function () {
+        var raiz = this.raiz;
+        if (window.innerWidth > 600) {
+            raiz.style.height = '';
+            return;
+        }
+        var vv = window.visualViewport;
+        var tecladoAberto = vv.height < window.innerHeight * 0.8;
+        if (!tecladoAberto) {
+            raiz.style.height = '';
+            return;
+        }
+        var header = document.querySelector('.site-header');
+        var topo = header ? header.getBoundingClientRect().bottom : 0;
+        raiz.style.height = Math.max(vv.height - Math.max(topo, 0) - 8, 220) + 'px';
+        raiz.scrollIntoView({ block: 'end' });
+        var lista = this.el.lista;
+        lista.scrollTop = lista.scrollHeight;
     };
 
     Chat.prototype._autoAltura = function () {
@@ -225,6 +258,7 @@
         this.segundos = p.segundos_restantes;
         this.ancora = Date.now();
 
+        this.online = !!(p.atendente && p.atendente.online);
         this._atualizarPresenca(p.atendente);
         this._atualizarEstado();
         this._tick();
@@ -276,7 +310,11 @@
 
     Chat.prototype._atualizarEstado = function () {
         var avisos = AVISOS[this.papel] || AVISOS.cliente;
-        if (this.el.aviso) { this.el.aviso.textContent = avisos[this.status] || ''; }
+        var chave = this.status;
+        if (chave === 'aguardando' && !this.online && avisos.aguardando_offline) {
+            chave = 'aguardando_offline';
+        }
+        if (this.el.aviso) { this.el.aviso.textContent = avisos[chave] || ''; }
 
         var fechada = this.status === 'encerrada' || this.status === 'expirada';
         if (this.el.fim) { this.el.fim.hidden = !fechada || this.papel !== 'cliente'; }

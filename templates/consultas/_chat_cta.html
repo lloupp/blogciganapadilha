@@ -1,0 +1,29 @@
+{# CTA do chat após o pagamento aprovado. Espera: consulta, chat_url, chat_status, whatsapp_url #}
+<div class="chat-cta">
+    {% if chat_status == 'encerrada' or chat_status == 'expirada' %}
+        <p class="chat-cta-texto">Sua consulta já foi realizada. A conversa continua salva para você reler.</p>
+        <a href="{{ chat_url }}" class="btn btn-primary">📜 Ver conversa</a>
+        <a href="{% url 'consultas:lista' %}" class="btn btn-secondary">Contratar nova consulta</a>
+    {% else %}
+        <p class="chat-cta-texto">
+            {% if chat_status == 'ativa' %}
+                Seu atendimento já começou: a Cigana está esperando por você no chat.
+            {% else %}
+                Entre no chat e já deixe sua pergunta. O tempo da consulta
+                ({{ consulta.tipo_consulta.duracao_minutos }} min) só começa a contar
+                quando a Cigana iniciar o atendimento.
+            {% endif %}
+        </p>
+        <a href="{{ chat_url }}" class="btn btn-primary chat-cta-principal">💬 Entrar no chat</a>
+        {% if whatsapp_url %}
+            <p class="chat-cta-alternativa">
+                Prefere o WhatsApp?
+                <a href="{{ whatsapp_url }}" target="_blank" rel="noopener">Falar com a Cigana por lá</a>
+            </p>
+        {% endif %}
+    {% endif %}
+    <p class="chat-cta-guardar">
+        Para voltar à conversa depois, salve o link do chat nos favoritos ou guarde
+        <a href="{{ consulta.get_status_url }}">esta página de acompanhamento</a>.
+    </p>
+</div>
