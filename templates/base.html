@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=4">
 
     {% block extra_head %}{% endblock %}
 
@@ -56,7 +56,8 @@
                     <li><a href="{% url 'core:post_list' %}?categoria=astrologia" class="nav-link">⭐ Astrologia</a></li>
                     <li><a href="{% url 'core:post_list' %}?categoria=rituais" class="nav-link">🕯️ Rituais</a></li>
                     <li><a href="{% url 'core:post_list' %}?categoria=cristais" class="nav-link">💎 Cristais</a></li>
-                    <li><a href="{% url 'consultas:lista' %}" class="nav-link">🔮 Consultas</a></li>
+                    {# Consultas fora do ar para o público (16/11/2026); staff continua vendo para testar. #}
+                    {% if user.is_staff %}<li><a href="{% url 'consultas:lista' %}" class="nav-link">🔮 Consultas</a></li>{% endif %}
                 </ul>
             </nav>
 

@@ -2,7 +2,7 @@
 
 > Projeto: **Blog Cigana Padilha** (`blog_mae`)
 > Objetivo: substituir o handoff por WhatsApp por um **chat dentro do site**, entre a cliente e a atendente, com duração controlada pela consulta já paga.
-> Status: **Fases 1 a 4 concluídas** (16/11/2026) · extensão de tempo **grátis na v1** (seção 15)
+> Status: **No ar desde 16/11/2026** (fases 1 a 5; falta o teste real de pagamento) (16/11/2026) · extensão de tempo **grátis na v1** (seção 15)
 
 ---
 
@@ -291,12 +291,13 @@ Todas exigem `staff`. POST exige CSRF (`X-CSRFToken`).
 
 ### Fase 5 — Testes, deploy e verificação (≈2 h)
 
-- [ ] `python manage.py test consultas`
-- [ ] `collectstatic`
-- [ ] Reiniciar Gunicorn + Cloudflare Tunnel
-- [ ] Teste real com uma consulta de R$ 50
-- [ ] Ativar `PRAGMA journal_mode=WAL` no SQLite (recomendado)
-- [ ] Backup do `db.sqlite3` antes do deploy
+- [x] `python manage.py test consultas` (56 testes)
+- [x] `collectstatic`
+- [x] Reiniciar Gunicorn + Cloudflare Tunnel (agora com 2 workers × 4 threads)
+- [ ] Teste real com uma consulta de R$ 50 (celular + desktop, incluindo o teclado)
+- [x] Ativar `PRAGMA journal_mode=WAL` no SQLite
+- [x] Backup do `db.sqlite3` antes do deploy (`~/backups/blog_mae/2026-11-16/`)
+- [x] Atendente "Cigana Padilha" ligada ao login `lucidantas`
 
 **Aceite:** fluxo completo em produção, celular + desktop.
 
