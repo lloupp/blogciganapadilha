@@ -1,0 +1,18 @@
+<a class="painel-linha is-{{ c.status }}" href="{% url 'consultas:painel_conversa' c.pk %}">
+    <span class="painel-linha-quem">
+        <strong>{{ c.consulta.nome_cliente }}</strong>
+        <span class="painel-linha-tipo">{{ c.consulta.tipo_consulta.icone }} {{ c.consulta.tipo_consulta.nome }}</span>
+    </span>
+    <span class="painel-linha-tempo">
+        {% if c.status == 'aguardando' %}
+            esperando desde {{ c.criada_em|date:"H:i" }}
+        {% elif c.status == 'ativa' %}
+            ⏳ {{ c.tempo_restante_display }}
+        {% else %}
+            {{ c.get_status_display }} · {{ c.atualizada_em|date:"d/m H:i" }}
+        {% endif %}
+    </span>
+    {% if c.nao_lidas %}
+        <span class="painel-badge" title="Mensagens não lidas">{{ c.nao_lidas }}</span>
+    {% endif %}
+</a>

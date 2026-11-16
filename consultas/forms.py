@@ -31,3 +31,15 @@ class SolicitarConsultaForm(forms.Form):
         if not (len(digitos) in (12, 13) and digitos.startswith('55')):
             raise forms.ValidationError('Informe um número de WhatsApp válido com DDD, ex.: (11) 91234-5678.')
         return digitos
+
+
+class MensagemForm(forms.Form):
+    texto = forms.CharField(
+        min_length=1,
+        max_length=2000,
+        strip=True,
+        error_messages={
+            'required': 'Escreva uma mensagem.',
+            'max_length': 'A mensagem pode ter no máximo %(limit_value)d caracteres.',
+        },
+    )

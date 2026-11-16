@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}💬 Sua consulta - Blog Cigana Padilha{% endblock %}
+
+{% block extra_head %}
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+<section class="chat"
+         id="chat"
+         data-papel="cliente"
+         data-url-mensagens="{% url 'consultas:chat_mensagens' consulta.referencia %}"
+         data-url-enviar="{% url 'consultas:chat_enviar' consulta.referencia %}"
+         data-csrf="{{ csrf_token }}"
+         data-intervalo="3000"
+         aria-label="Chat da consulta">
+
+    <header class="chat-header">
+        <div class="chat-avatar" aria-hidden="true">
+            {% if atendente and atendente.foto %}
+                <img src="{{ atendente.foto.url }}" alt="">
+            {% else %}
+                🔮
+            {% endif %}
+        </div>
+        <div class="chat-quem">
+            <h1 class="chat-nome">{{ atendente.nome|default:"Cigana Padilha" }}</h1>
+            <p class="chat-presenca" data-chat="presenca">
+                <span class="chat-dot{% if atendente.online %} is-online{% endif %}" aria-hidden="true"></span>
+                <span data-chat="presenca-texto">{% if atendente.online %}Online{% else %}Offline{% endif %}</span>
+            </p>
+        </div>
+        <div class="chat-relogio is-{{ conversa.status }}" data-chat="relogio" role="timer" aria-live="off"
+             title="Tempo restante da consulta">
+            ⏳ <span data-chat="tempo">--:--</span>
+        </div>
+    </header>
+
+    <p class="chat-aviso" data-chat="aviso" role="status" aria-live="polite"></p>
+
+    <ol class="chat-mensagens" data-chat="lista" aria-live="polite" aria-label="Mensagens">
+        <li class="chat-vazio" data-chat="vazio">
+            Escreva sua primeira pergunta. A Cigana vai ler assim que iniciar o atendimento.
+        </li>
+    </ol>
+
+    <form class="chat-form" data-chat="form" autocomplete="off" novalidate>
+        <label for="chat-texto" class="visually-hidden">Sua mensagem</label>
+        <textarea id="chat-texto" data-chat="texto" rows="1" maxlength="2000"
+                  placeholder="Escreva sua mensagem…" enterkeyhint="send"></textarea>
+        <button type="submit" class="btn btn-primary chat-enviar" data-chat="enviar">Enviar</button>
+    </form>
+    <p class="chat-erro" data-chat="erro" role="alert"></p>
+
+    <div class="chat-fim" data-chat="fim" hidden>
+        <p>Esta consulta foi encerrada. Obrigada pela confiança! 🌙</p>
+        <a href="{% url 'consultas:lista' %}" class="btn btn-primary">Contratar nova consulta</a>
+    </div>
+</section>
+
+<div class="chat-rodape">
+    <p>
+        Guarde este link: é por ele que você volta para a conversa.
+        {% if whatsapp_url %}
+            Prefere o WhatsApp? <a href="{{ whatsapp_url }}" target="_blank" rel="noopener">Falar por lá</a>.
+        {% endif %}
+    </p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/chat.js' %}?v=2"></script>
+{% endblock %}

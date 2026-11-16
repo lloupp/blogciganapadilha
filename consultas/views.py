@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 
@@ -7,14 +8,19 @@ import mercadopago
 from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
+from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import ValidationError
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 
-from .forms import SolicitarConsultaForm
-from .models import Consulta, TipoConsulta
+from .forms import MensagemForm, SolicitarConsultaForm
+from .models import Atendente, Consulta, Conversa, Mensagem, TipoConsulta
 
 logger = logging.getLogger(__name__)
 
@@ -303,3 +309,301 @@ def webhook(request):
 
     _aplicar_pagamento(consulta, payment)
     return JsonResponse({'status': 'ok'})
+
+
+# ============================================================
+# Chat da consulta (cliente acessa pelo UUID, sem login)
+# ============================================================
+
+CHAT_LIMITE_MENSAGENS = 20   # por conversa
+CHAT_JANELA = 60             # segundos
+CHAT_MAX_POR_POLL = 200
+
+
+def _noindex(response):
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
+
+
+def _obter_conversa(consulta):
+    conversa, _ = Conversa.objects.select_related('atendente', 'consulta__tipo_consulta').get_or_create(
+        consulta=consulta,
+        defaults={'atendente': Atendente.padrao()},
+    )
+    conversa.expirar_se_preciso()
+    return conversa
+
+
+def _ler_apos(request):
+    try:
+        return max(0, int(request.GET.get('apos', 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _atendente_json(atendente):
+    if atendente is None:
+        return None
+    return {
+        'nome': atendente.nome,
+        'foto': atendente.foto.url if atendente.foto else '',
+        'online': atendente.online,
+    }
+
+
+def chat_payload(conversa, apos, leitor):
+    """Estado da conversa + mensagens com id > `apos`.
+
+    `leitor` é quem está lendo ('cliente' ou 'atendente'): as mensagens do
+    outro lado são marcadas como lidas.
+    """
+    outro = Mensagem.AUTOR_ATENDENTE if leitor == Mensagem.AUTOR_CLIENTE else Mensagem.AUTOR_CLIENTE
+    conversa.mensagens.filter(autor=outro, lida=False).update(lida=True)
+
+    mensagens = list(conversa.mensagens.filter(id__gt=apos).order_by('id')[:CHAT_MAX_POR_POLL])
+    lidas_ate = (
+        conversa.mensagens.filter(autor=leitor, lida=True).order_by('-id').values_list('id', flat=True).first()
+        or 0
+    )
+    expira_em = conversa.expira_em
+    return {
+        'ok': True,
+        'status': conversa.status,
+        'status_display': conversa.get_status_display(),
+        'iniciada': conversa.iniciada_em is not None,
+        'pode_enviar': conversa.pode_receber_mensagem,
+        'segundos_restantes': conversa.segundos_restantes,
+        'expira_em': timezone.localtime(expira_em).isoformat() if expira_em else None,
+        'atendente': _atendente_json(conversa.atendente),
+        'mensagens': [
+            {
+                'id': m.id,
+                'autor': m.autor,
+                'texto': m.texto,
+                'criada_em': timezone.localtime(m.criada_em).strftime('%H:%M'),
+            }
+            for m in mensagens
+        ],
+        'ultimo_id': mensagens[-1].id if mensagens else apos,
+        'lidas_ate': lidas_ate,
+    }
+
+
+def _chat_throttle_excedido(conversa):
+    chave = f'consultas:chat:throttle:{conversa.pk}'
+    enviadas = cache.get_or_set(chave, 0, CHAT_JANELA)
+    if enviadas >= CHAT_LIMITE_MENSAGENS:
+        return True
+    try:
+        cache.incr(chave)
+    except ValueError:
+        cache.set(chave, 1, CHAT_JANELA)
+    return False
+
+
+def _ler_texto(request):
+    if request.content_type == 'application/json':
+        try:
+            dados = json.loads(request.body.decode('utf-8') or '{}')
+        except (ValueError, UnicodeDecodeError):
+            return None, 'Requisição inválida.'
+        if not isinstance(dados, dict):
+            return None, 'Requisição inválida.'
+    else:
+        dados = request.POST
+    form = MensagemForm({'texto': dados.get('texto', '')})
+    if not form.is_valid():
+        return None, form.errors['texto'][0]
+    return form.cleaned_data['texto'], None
+
+
+def criar_mensagem(request, conversa, autor):
+    """Valida e grava uma mensagem; devolve (JsonResponse de erro | None)."""
+    texto, erro = _ler_texto(request)
+    if erro:
+        return JsonResponse({'ok': False, 'erro': erro}, status=400)
+    conversa.expirar_se_preciso()
+    if not conversa.pode_receber_mensagem:
+        return JsonResponse({'ok': False, 'erro': 'Esta conversa não aceita novas mensagens.'}, status=409)
+    if _chat_throttle_excedido(conversa):
+        return JsonResponse({'ok': False, 'erro': 'Muitas mensagens seguidas. Aguarde um minuto.'}, status=429)
+    conversa.mensagens.create(autor=autor, texto=texto)
+    Conversa.objects.filter(pk=conversa.pk).update(atualizada_em=timezone.now())
+    return None
+
+
+@never_cache
+@require_GET
+def chat(request, referencia):
+    consulta = get_object_or_404(Consulta.objects.select_related('tipo_consulta'), referencia=referencia)
+    if consulta.status != 'aprovado':
+        messages.info(request, 'O chat é liberado assim que o pagamento for confirmado.')
+        return redirect(consulta.get_status_url())
+
+    conversa = _obter_conversa(consulta)
+    context = {
+        'consulta': consulta,
+        'conversa': conversa,
+        'atendente': conversa.atendente,
+        'whatsapp_url': _whatsapp_url(consulta),
+    }
+    return _noindex(render(request, 'consultas/chat.html', context))
+
+
+def _consulta_do_chat(referencia):
+    consulta = get_object_or_404(Consulta, referencia=referencia)
+    if consulta.status != 'aprovado':
+        resposta = JsonResponse(
+            {'ok': False, 'erro': 'Pagamento não confirmado.', 'redirect': consulta.get_status_url()},
+            status=403,
+        )
+        return consulta, resposta
+    return consulta, None
+
+
+@never_cache
+@require_GET
+def chat_mensagens(request, referencia):
+    consulta, erro = _consulta_do_chat(referencia)
+    if erro:
+        return _noindex(erro)
+    conversa = _obter_conversa(consulta)
+    return _noindex(JsonResponse(chat_payload(conversa, _ler_apos(request), Mensagem.AUTOR_CLIENTE)))
+
+
+@never_cache
+@require_POST
+def chat_enviar(request, referencia):
+    consulta, erro = _consulta_do_chat(referencia)
+    if erro:
+        return _noindex(erro)
+    conversa = _obter_conversa(consulta)
+    erro = criar_mensagem(request, conversa, Mensagem.AUTOR_CLIENTE)
+    if erro:
+        return _noindex(erro)
+    return _noindex(JsonResponse(chat_payload(conversa, _ler_apos(request), Mensagem.AUTOR_CLIENTE)))
+
+
+# ============================================================
+# Painel da atendente (staff)
+# ============================================================
+
+EXTENSOES_PERMITIDAS = (10, 15, 30)
+PAINEL_ENCERRADAS_DIAS = 7
+
+
+def _painel_conversas():
+    return Conversa.objects.select_related('consulta__tipo_consulta', 'atendente').annotate(
+        nao_lidas=Count(
+            'mensagens',
+            filter=Q(mensagens__autor=Mensagem.AUTOR_CLIENTE, mensagens__lida=False),
+        ),
+    )
+
+
+def _conversa_do_painel(pk):
+    conversa = get_object_or_404(_painel_conversas(), pk=pk)
+    conversa.expirar_se_preciso()
+    return conversa
+
+
+def _atendente_do_usuario(user):
+    return getattr(user, 'atendente', None)
+
+
+@never_cache
+@staff_member_required
+@require_GET
+def painel(request):
+    # Expira as que passaram do tempo antes de montar a lista.
+    for conversa in Conversa.objects.filter(status=Conversa.STATUS_ATIVA).select_related('consulta__tipo_consulta'):
+        conversa.expirar_se_preciso()
+
+    base = _painel_conversas()
+    limite = timezone.now() - timedelta(days=PAINEL_ENCERRADAS_DIAS)
+    context = {
+        'aguardando': base.filter(status=Conversa.STATUS_AGUARDANDO).order_by('criada_em'),
+        'ativas': base.filter(status=Conversa.STATUS_ATIVA).order_by('iniciada_em'),
+        'encerradas': base.filter(
+            status__in=[Conversa.STATUS_ENCERRADA, Conversa.STATUS_EXPIRADA],
+            atualizada_em__gte=limite,
+        ).order_by('-atualizada_em')[:30],
+        'atendente': _atendente_do_usuario(request.user) or Atendente.padrao(),
+    }
+    return _noindex(render(request, 'consultas/painel.html', context))
+
+
+@never_cache
+@staff_member_required
+@require_GET
+def painel_conversa(request, pk):
+    conversa = _conversa_do_painel(pk)
+    context = {
+        'conversa': conversa,
+        'consulta': conversa.consulta,
+        'extensoes': EXTENSOES_PERMITIDAS,
+    }
+    return _noindex(render(request, 'consultas/painel_conversa.html', context))
+
+
+@never_cache
+@staff_member_required
+@require_GET
+def painel_mensagens(request, pk):
+    conversa = _conversa_do_painel(pk)
+    return JsonResponse(chat_payload(conversa, _ler_apos(request), Mensagem.AUTOR_ATENDENTE))
+
+
+@never_cache
+@staff_member_required
+@require_POST
+def painel_enviar(request, pk):
+    conversa = _conversa_do_painel(pk)
+    erro = criar_mensagem(request, conversa, Mensagem.AUTOR_ATENDENTE)
+    if erro:
+        return erro
+    return JsonResponse(chat_payload(conversa, _ler_apos(request), Mensagem.AUTOR_ATENDENTE))
+
+
+def _acao_painel(request, conversa, ok, erro):
+    if not ok:
+        return JsonResponse({'ok': False, 'erro': erro}, status=409)
+    return JsonResponse(chat_payload(conversa, _ler_apos(request), Mensagem.AUTOR_ATENDENTE))
+
+
+@never_cache
+@staff_member_required
+@require_POST
+def painel_iniciar(request, pk):
+    conversa = _conversa_do_painel(pk)
+    if conversa.consulta.status != 'aprovado':
+        return JsonResponse({'ok': False, 'erro': 'O pagamento desta consulta não está aprovado.'}, status=409)
+    ok = conversa.iniciar(_atendente_do_usuario(request.user))
+    return _acao_painel(request, conversa, ok, 'Este atendimento já foi iniciado.')
+
+
+@never_cache
+@staff_member_required
+@require_POST
+def painel_estender(request, pk):
+    conversa = _conversa_do_painel(pk)
+    try:
+        if request.content_type == 'application/json':
+            minutos = int(json.loads(request.body.decode('utf-8') or '{}').get('minutos'))
+        else:
+            minutos = int(request.POST.get('minutos'))
+    except (TypeError, ValueError, AttributeError, UnicodeDecodeError):
+        minutos = None
+    if minutos not in EXTENSOES_PERMITIDAS:
+        return JsonResponse({'ok': False, 'erro': 'Tempo de extensão inválido.'}, status=400)
+    ok = conversa.estender(minutos)
+    return _acao_painel(request, conversa, ok, 'Só dá para estender um atendimento em andamento ou com tempo esgotado.')
+
+
+@never_cache
+@staff_member_required
+@require_POST
+def painel_encerrar(request, pk):
+    conversa = _conversa_do_painel(pk)
+    ok = conversa.encerrar()
+    return _acao_painel(request, conversa, ok, 'Este atendimento já está encerrado.')

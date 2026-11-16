@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}💬 {{ consulta.nome_cliente }} - Área da Cigana{% endblock %}
+
+{% block extra_head %}
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+<p class="painel-voltar"><a href="{% url 'consultas:painel' %}">← Todos os atendimentos</a></p>
+
+<div class="painel-conversa">
+    <section class="chat"
+             id="chat"
+             data-papel="atendente"
+             data-url-mensagens="{% url 'consultas:painel_mensagens' conversa.pk %}"
+             data-url-enviar="{% url 'consultas:painel_enviar' conversa.pk %}"
+             data-csrf="{{ csrf_token }}"
+             data-intervalo="4000"
+             aria-label="Conversa com {{ consulta.nome_cliente }}">
+
+        <header class="chat-header">
+            <div class="chat-avatar" aria-hidden="true">🙋‍♀️</div>
+            <div class="chat-quem">
+                <h1 class="chat-nome">{{ consulta.nome_cliente }}</h1>
+                <p class="chat-presenca">{{ consulta.tipo_consulta.icone }} {{ consulta.tipo_consulta.nome }}</p>
+            </div>
+            <div class="chat-relogio is-{{ conversa.status }}" data-chat="relogio" role="timer" aria-live="off"
+                 title="Tempo restante da consulta">
+                ⏳ <span data-chat="tempo">--:--</span>
+            </div>
+        </header>
+
+        <p class="chat-aviso" data-chat="aviso" role="status" aria-live="polite"></p>
+
+        <ol class="chat-mensagens" data-chat="lista" aria-live="polite" aria-label="Mensagens">
+            <li class="chat-vazio" data-chat="vazio">A cliente ainda não escreveu.</li>
+        </ol>
+
+        <form class="chat-form" data-chat="form" autocomplete="off" novalidate>
+            <label for="chat-texto" class="visually-hidden">Sua resposta</label>
+            <textarea id="chat-texto" data-chat="texto" rows="1" maxlength="2000"
+                      placeholder="Escreva sua resposta…" enterkeyhint="send"></textarea>
+            <button type="submit" class="btn btn-primary chat-enviar" data-chat="enviar">Enviar</button>
+        </form>
+        <p class="chat-erro" data-chat="erro" role="alert"></p>
+    </section>
+
+    <aside class="painel-lateral" id="painel-acoes"
+           data-url-iniciar="{% url 'consultas:painel_iniciar' conversa.pk %}"
+           data-url-estender="{% url 'consultas:painel_estender' conversa.pk %}"
+           data-url-encerrar="{% url 'consultas:painel_encerrar' conversa.pk %}">
+
+        <div class="painel-card">
+            <h2 class="painel-card-titulo">Atendimento</h2>
+            <p class="painel-status" data-acao="status">{{ conversa.get_status_display }}</p>
+
+            <button type="button" class="btn btn-primary painel-btn" data-acao="iniciar"
+                    {% if conversa.status != 'aguardando' %}hidden{% endif %}>
+                ▶ Iniciar atendimento
+            </button>
+
+            <div class="painel-estender" data-acao="estender-grupo"
+                 {% if conversa.status == 'aguardando' or conversa.status == 'encerrada' %}hidden{% endif %}>
+                <span class="painel-estender-rotulo">Dar mais tempo:</span>
+                {% for m in extensoes %}
+                    <button type="button" class="btn btn-secondary painel-btn-mini" data-acao="estender" data-minutos="{{ m }}">+{{ m }} min</button>
+                {% endfor %}
+            </div>
+
+            <button type="button" class="btn btn-secondary painel-btn painel-btn-perigo" data-acao="encerrar"
+                    {% if conversa.status == 'encerrada' or conversa.status == 'expirada' %}hidden{% endif %}>
+                ■ Encerrar atendimento
+            </button>
+            <p class="chat-erro" data-acao="erro" role="alert"></p>
+        </div>
+
+        <div class="painel-card">
+            <h2 class="painel-card-titulo">Cliente</h2>
+            <dl class="painel-dados">
+                <dt>Nome</dt><dd>{{ consulta.nome_cliente }}</dd>
+                <dt>E-mail</dt><dd>{{ consulta.email_cliente }}</dd>
+                <dt>WhatsApp</dt><dd>{{ consulta.whatsapp_cliente }}</dd>
+                <dt>Consulta</dt><dd>{{ consulta.tipo_consulta.nome }} · {{ consulta.tipo_consulta.duracao_minutos }} min</dd>
+                <dt>Valor</dt><dd>R$ {{ consulta.valor }} · {{ consulta.get_status_display }}</dd>
+                <dt>Pedido em</dt><dd>{{ consulta.criado_em|date:"d/m/Y H:i" }}</dd>
+            </dl>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/chat.js' %}?v=2"></script>
+<script src="{% static 'js/painel_chat.js' %}?v=1"></script>
+{% endblock %}

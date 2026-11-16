@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}🔮 Área da Cigana - Atendimentos{% endblock %}
+
+{% block extra_head %}
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="refresh" content="15">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+<div class="painel">
+    <header class="painel-topo">
+        <div>
+            <h1 class="page-title painel-titulo">🔮 Atendimentos</h1>
+            <p class="painel-sub">A lista atualiza sozinha a cada 15 segundos.</p>
+        </div>
+        {% if atendente %}
+        <a class="painel-presenca" href="{% url 'admin:consultas_atendente_change' atendente.pk %}"
+           title="Mudar online/offline no admin">
+            <span class="chat-dot{% if atendente.online %} is-online{% endif %}" aria-hidden="true"></span>
+            {{ atendente.nome }} — {% if atendente.online %}Online{% else %}Offline{% endif %}
+        </a>
+        {% endif %}
+    </header>
+
+    <section class="painel-grupo" aria-labelledby="g-aguardando">
+        <h2 id="g-aguardando" class="painel-grupo-titulo">
+            Aguardando <span class="painel-contagem{% if aguardando %} is-alerta{% endif %}">{{ aguardando|length }}</span>
+        </h2>
+        {% for c in aguardando %}
+            {% include 'consultas/_painel_linha.html' with c=c %}
+        {% empty %}
+            <p class="painel-vazio">Ninguém esperando agora.</p>
+        {% endfor %}
+    </section>
+
+    <section class="painel-grupo" aria-labelledby="g-ativas">
+        <h2 id="g-ativas" class="painel-grupo-titulo">
+            Em atendimento <span class="painel-contagem">{{ ativas|length }}</span>
+        </h2>
+        {% for c in ativas %}
+            {% include 'consultas/_painel_linha.html' with c=c %}
+        {% empty %}
+            <p class="painel-vazio">Nenhum atendimento em andamento.</p>
+        {% endfor %}
+    </section>
+
+    <section class="painel-grupo" aria-labelledby="g-encerradas">
+        <h2 id="g-encerradas" class="painel-grupo-titulo">Encerradas nos últimos 7 dias</h2>
+        {% for c in encerradas %}
+            {% include 'consultas/_painel_linha.html' with c=c %}
+        {% empty %}
+            <p class="painel-vazio">Nada por aqui ainda.</p>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

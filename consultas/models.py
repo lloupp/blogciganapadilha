@@ -1,6 +1,9 @@
 import uuid
+from datetime import timedelta
 
+from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.urls import reverse
 from django.utils.text import slugify
 
@@ -80,3 +83,204 @@ class Consulta(models.Model):
 
     def get_status_url(self):
         return reverse('consultas:status', kwargs={'referencia': self.referencia})
+
+
+# ============================================================
+# Chat de consultas
+# ============================================================
+
+class Atendente(models.Model):
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='atendente',
+        verbose_name='Usuário (login do painel)',
+    )
+    nome = models.CharField('Nome', max_length=100)
+    bio = models.TextField('Apresentação', blank=True)
+    foto = models.ImageField('Foto', upload_to='atendentes/', blank=True)
+    online = models.BooleanField('Online', default=False)
+    ativo = models.BooleanField('Ativo', default=True)
+    criado_em = models.DateTimeField('Criado em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Atendente'
+        verbose_name_plural = 'Atendentes'
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+    @classmethod
+    def padrao(cls):
+        """Primeira atendente ativa (online primeiro)."""
+        return cls.objects.filter(ativo=True).order_by('-online', 'pk').first()
+
+
+class Conversa(models.Model):
+    STATUS_AGUARDANDO = 'aguardando'
+    STATUS_ATIVA = 'ativa'
+    STATUS_ENCERRADA = 'encerrada'
+    STATUS_EXPIRADA = 'expirada'
+    STATUS_CHOICES = [
+        (STATUS_AGUARDANDO, 'Aguardando atendente'),
+        (STATUS_ATIVA, 'Em atendimento'),
+        (STATUS_ENCERRADA, 'Encerrada'),
+        (STATUS_EXPIRADA, 'Tempo esgotado'),
+    ]
+
+    consulta = models.OneToOneField(
+        Consulta,
+        on_delete=models.CASCADE,
+        related_name='conversa',
+        verbose_name='Consulta',
+    )
+    atendente = models.ForeignKey(
+        Atendente,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='conversas',
+        verbose_name='Atendente',
+    )
+    status = models.CharField('Status', max_length=12, choices=STATUS_CHOICES, default=STATUS_AGUARDANDO)
+    iniciada_em = models.DateTimeField('Iniciada em', null=True, blank=True)
+    segundos_concedidos = models.PositiveIntegerField('Tempo concedido (s)', default=0)
+    encerrada_em = models.DateTimeField('Encerrada em', null=True, blank=True)
+    criada_em = models.DateTimeField('Criada em', auto_now_add=True)
+    atualizada_em = models.DateTimeField('Atualizada em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Conversa'
+        verbose_name_plural = 'Conversas'
+        ordering = ['-atualizada_em']
+
+    def __str__(self):
+        return f'Conversa #{self.pk} — {self.consulta.nome_cliente} ({self.get_status_display()})'
+
+    # --- tempo -------------------------------------------------------
+
+    @property
+    def expira_em(self):
+        if not self.iniciada_em:
+            return None
+        return self.iniciada_em + timedelta(seconds=self.segundos_concedidos)
+
+    @property
+    def segundos_restantes(self):
+        if self.status == self.STATUS_AGUARDANDO:
+            return self.consulta.tipo_consulta.duracao_minutos * 60
+        if self.status != self.STATUS_ATIVA or self.expira_em is None:
+            return 0
+        return max(0, int((self.expira_em - timezone.now()).total_seconds()))
+
+    @property
+    def tempo_restante_display(self):
+        m, s = divmod(self.segundos_restantes, 60)
+        h, m = divmod(m, 60)
+        return f'{h}:{m:02d}:{s:02d}' if h else f'{m:02d}:{s:02d}'
+
+    @property
+    def pode_receber_mensagem(self):
+        if self.consulta.status != 'aprovado':
+            return False
+        if self.status == self.STATUS_AGUARDANDO:
+            return True
+        return self.status == self.STATUS_ATIVA and self.segundos_restantes > 0
+
+    # --- transições --------------------------------------------------
+
+    def _mensagem_sistema(self, texto):
+        return self.mensagens.create(autor=Mensagem.AUTOR_SISTEMA, texto=texto, lida=True)
+
+    def iniciar(self, atendente=None):
+        if self.status != self.STATUS_AGUARDANDO:
+            return False
+        self.atendente = atendente or self.atendente or Atendente.padrao()
+        self.status = self.STATUS_ATIVA
+        self.iniciada_em = timezone.now()
+        self.segundos_concedidos = self.consulta.tipo_consulta.duracao_minutos * 60
+        self.save(update_fields=['atendente', 'status', 'iniciada_em', 'segundos_concedidos', 'atualizada_em'])
+        minutos = self.segundos_concedidos // 60
+        self._mensagem_sistema(f'Atendimento iniciado. Você tem {minutos} minutos.')
+        return True
+
+    def estender(self, minutos):
+        """Soma tempo. Se a conversa já expirou, reabre por `minutos`.
+
+        Conversa encerrada manualmente ou ainda aguardando não é estendida.
+        """
+        minutos = int(minutos)
+        if minutos <= 0:
+            return False
+        self.expirar_se_preciso()
+        if self.status == self.STATUS_ATIVA:
+            self.segundos_concedidos += minutos * 60
+        elif self.status == self.STATUS_EXPIRADA:
+            # Reabre a partir de agora: o tempo concedido passa a cobrir
+            # o que já foi usado + os minutos novos.
+            usados = int((timezone.now() - self.iniciada_em).total_seconds())
+            self.segundos_concedidos = usados + minutos * 60
+            self.status = self.STATUS_ATIVA
+        else:
+            return False
+        self.save(update_fields=['status', 'segundos_concedidos', 'atualizada_em'])
+        self._mensagem_sistema(f'Tempo estendido em {minutos} minutos.')
+        return True
+
+    def expirar_se_preciso(self):
+        if self.status != self.STATUS_ATIVA or self.expira_em is None:
+            return False
+        if timezone.now() < self.expira_em:
+            return False
+        self.status = self.STATUS_EXPIRADA
+        self.encerrada_em = self.expira_em
+        self.save(update_fields=['status', 'encerrada_em', 'atualizada_em'])
+        self._mensagem_sistema('Tempo da consulta encerrado.')
+        return True
+
+    def encerrar(self):
+        if self.status in (self.STATUS_ENCERRADA, self.STATUS_EXPIRADA):
+            return False
+        self.status = self.STATUS_ENCERRADA
+        self.encerrada_em = timezone.now()
+        self.save(update_fields=['status', 'encerrada_em', 'atualizada_em'])
+        self._mensagem_sistema('Atendimento encerrado.')
+        return True
+
+
+class Mensagem(models.Model):
+    AUTOR_CLIENTE = 'cliente'
+    AUTOR_ATENDENTE = 'atendente'
+    AUTOR_SISTEMA = 'sistema'
+    AUTOR_CHOICES = [
+        (AUTOR_CLIENTE, 'Cliente'),
+        (AUTOR_ATENDENTE, 'Atendente'),
+        (AUTOR_SISTEMA, 'Sistema'),
+    ]
+    TAMANHO_MAXIMO = 2000
+
+    conversa = models.ForeignKey(
+        Conversa,
+        on_delete=models.CASCADE,
+        related_name='mensagens',
+        verbose_name='Conversa',
+    )
+    autor = models.CharField('Autor', max_length=10, choices=AUTOR_CHOICES)
+    texto = models.TextField('Texto', max_length=TAMANHO_MAXIMO)
+    lida = models.BooleanField('Lida', default=False)
+    criada_em = models.DateTimeField('Enviada em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Mensagem'
+        verbose_name_plural = 'Mensagens'
+        ordering = ['id']
+        indexes = [
+            models.Index(fields=['conversa', 'id'], name='msg_conversa_id_idx'),
+            models.Index(fields=['conversa', 'lida'], name='msg_conversa_lida_idx'),
+        ]
+
+    def __str__(self):
+        return f'[{self.get_autor_display()}] {self.texto[:50]}'
