@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% load emoji %}
 {% block title %}📚 Todos os Artigos - Blog Cigana Padilha{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1 class="page-title">
+    <h1 class="page-title">{% filter emoji %}
         {% if categoria_atual %}
             📂 {{ posts.0.categoria.icone|default:'📂' }} Posts em "{{ categoria_atual|title }}"
         {% elif tag_atual %}
@@ -13,7 +14,7 @@
         {% else %}
             📚 Todos os Artigos
         {% endif %}
-    </h1>
+    {% endfilter %}</h1>
     <p class="page-subtitle">{{ posts.paginator.count }} artigo{{ posts.paginator.count|pluralize:'s' }} publicados</p>
 </div>
 

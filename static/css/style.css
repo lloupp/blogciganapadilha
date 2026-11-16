@@ -1613,3 +1613,13 @@ input:focus-visible {
         padding: 0 18px;
     }
 }
+
+/* Emojis dentro de títulos com gradiente (background-clip: text):
+   sem isto o emoji vira uma silhueta rosa/roxa. Ver core/templatetags/emoji.py */
+.emoji,
+.header-icon {
+    -webkit-text-fill-color: initial;
+    background: none;
+    text-shadow: none;
+    animation: none;
+}

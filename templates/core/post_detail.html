@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load emoji %}
 {% block title %}{{ post.titulo }} - Blog Cigana Padilha{% endblock %}
 {% block meta_description %}{{ post.subtitulo|default:post.titulo }}{% endblock %}
 
@@ -13,7 +14,7 @@
         </div>
         {% endif %}
 
-        <h1 class="post-title">{{ post.titulo }}</h1>
+        <h1 class="post-title">{{ post.titulo|emoji }}</h1>
 
         {% if post.subtitulo %}
         <p class="post-subtitle">{{ post.subtitulo }}</p>
