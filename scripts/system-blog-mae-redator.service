@@ -1,0 +1,39 @@
+[Unit]
+Description=Blog da Mae - Agente de postagens (opencode)
+After=network-online.target blog-mae.service
+Wants=network-online.target
+
+[Service]
+User=eduardodlima
+Group=eduardodlima
+WorkingDirectory=/home/eduardodlima/projetos/blog_mae
+Environment=HOME=/home/eduardodlima
+Environment=PYTHONUNBUFFERED=1
+# OPENCODE_API_KEY (conta opencode-go). Arquivo do root, 600: o site nao le.
+EnvironmentFile=/etc/blog-mae/redator.env
+ExecStart=/home/eduardodlima/projetos/blog_mae/venv/bin/python manage.py redator_worker
+Restart=always
+RestartSec=5
+
+# Mesmo isolamento do site: /home vazio, exceto o projeto e o que o opencode
+# precisa (executavel, login/config, dados, cache e estado).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+TemporaryFileSystem=/home:ro
+BindPaths=/home/eduardodlima/projetos/blog_mae
+BindReadOnlyPaths=/home/eduardodlima/.local/share/uv/python
+BindReadOnlyPaths=/home/eduardodlima/.opencode
+BindReadOnlyPaths=/home/eduardodlima/.config/opencode
+BindPaths=/home/eduardodlima/.local/share/opencode
+BindPaths=/home/eduardodlima/.local/state/opencode
+BindPaths=/home/eduardodlima/.cache/opencode
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+LockPersonality=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=multi-user.target

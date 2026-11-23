@@ -72,9 +72,7 @@ class FluxoAgenteTests(TestCase):
         self.conversa = Conversa.objects.create()
 
     def _enviar_e_responder(self, texto, resposta):
-        with mock.patch.object(agente, 'disparar'):
-            with self.captureOnCommitCallbacks(execute=True):
-                msg = agente.enviar(self.conversa, texto)
+        msg = agente.enviar(self.conversa, texto)
         with mock.patch.object(agente, 'chamar_opencode', return_value=(resposta, 100, 50)) as chamada:
             agente.responder(msg.pk)
         msg.refresh_from_db()
@@ -117,9 +115,7 @@ class FluxoAgenteTests(TestCase):
         self.assertIn('Dona: Deixe mais curto', prompt)
 
     def test_erro_do_opencode_vira_mensagem_de_erro(self):
-        with mock.patch.object(agente, 'disparar'):
-            with self.captureOnCommitCallbacks(execute=True):
-                msg = agente.enviar(self.conversa, 'Post sobre O Sol')
+        msg = agente.enviar(self.conversa, 'Post sobre O Sol')
         with mock.patch.object(agente, 'chamar_opencode', side_effect=agente.ErroAgente('Falhou.')):
             agente.responder(msg.pk)
         msg.refresh_from_db()
@@ -168,6 +164,38 @@ class ModeloReservaTests(TestCase):
         with mock.patch.object(agente, '_rodar_opencode', side_effect=agente.ErroAgente('x')):
             with self.assertRaises(agente.ErroAgente):
                 agente.chamar_opencode('p')
+
+
+@override_settings(**CONFIG)
+class WorkerTests(TestCase):
+    def test_processa_pendentes_em_ordem_e_sai(self):
+        from django.core.management import call_command
+        conversa = Conversa.objects.create()
+        a = agente.enviar(conversa, 'primeiro')
+        outra = Conversa.objects.create()
+        b = agente.enviar(outra, 'segundo')
+        ordem = []
+
+        def chamar(prompt):
+            ordem.append(prompt.rsplit('Dona: ', 1)[1].split('\n')[0])
+            return ('Resposta.', 1, 1)
+        with mock.patch.object(agente, 'chamar_opencode', side_effect=chamar):
+            call_command('redator_worker', '--uma-vez', stdout=open('/dev/null', 'w'))
+        self.assertEqual(ordem, ['primeiro', 'segundo'])
+        for m in (a, b):
+            m.refresh_from_db()
+            self.assertEqual(m.estado, Mensagem.PRONTA)
+        self.assertIsNone(agente.proxima_pendente())
+
+    def test_erro_inesperado_nao_trava_o_worker(self):
+        from django.core.management import call_command
+        m = agente.enviar(Conversa.objects.create(), 'oi')
+        with mock.patch.object(agente, 'chamar_opencode', side_effect=RuntimeError('bug')), \
+                mock.patch('redator.management.commands.redator_worker.responder',
+                           side_effect=RuntimeError('bug')):
+            call_command('redator_worker', '--uma-vez', stdout=open('/dev/null', 'w'))
+        m.refresh_from_db()
+        self.assertEqual(m.estado, Mensagem.ERRO)
 
 
 @override_settings(**CONFIG)
@@ -234,17 +262,13 @@ class AdminTests(TestCase):
         self.assertContains(r, 'Aprovar e publicar agora')
         self.assertContains(r, 'Restam 5 mensagens hoje')
 
-    def test_enviar_dispara_o_agente(self):
-        with mock.patch.object(agente, 'disparar') as disparar:
-            with self.captureOnCommitCallbacks(execute=True):
-                self.client.post(self.url('enviar'), {'texto': 'Deixe mais curto'})
-        disparar.assert_called_once()
+    def test_enviar_deixa_resposta_pendente_para_o_worker(self):
+        self.client.post(self.url('enviar'), {'texto': 'Deixe mais curto'})
+        self.assertEqual(agente.proxima_pendente(), Mensagem.objects.get(estado=Mensagem.PENSANDO).pk)
         self.assertTrue(self.client.get(self.url('estado')).json()['pensando'])
 
     def test_enviar_bloqueado_nao_dispara(self):
-        with mock.patch.object(agente, 'disparar') as disparar:
-            r = self.client.post(self.url('enviar'), {'texto': 'a' * 500}, follow=True)
-        disparar.assert_not_called()
+        r = self.client.post(self.url('enviar'), {'texto': 'a' * 500}, follow=True)
         self.assertContains(r, 'longa demais')
         self.assertFalse(Mensagem.objects.exists())
 

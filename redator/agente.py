@@ -10,7 +10,6 @@ import logging
 import os
 import re
 import subprocess
-import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -167,6 +166,7 @@ def _rodar_opencode(prompt, modelo):
         '--agent', 'redator',
         '--format', 'json',
         '--archived',
+        '--standalone',  # servidor próprio, não o opencode de fundo do usuário
         '--title', 'Agente de postagens do blog',
     ]
     # O opencode usa $PWD (não só o cwd do processo) para achar a configuração
@@ -303,7 +303,11 @@ def aplicar_post(conversa, dados):
 # ---------------------------------------------------------------------------
 
 def enviar(conversa, texto, usuario=None):
-    """Registra a mensagem da dona, cria a resposta "pensando" e dispara o agente."""
+    """Registra a mensagem da dona e cria a resposta "pensando".
+
+    Quem responde é o serviço blog-mae-redator (comando redator_worker), fora do
+    isolamento do site: o gunicorn não enxerga o opencode nem o login dele.
+    """
     with transaction.atomic():
         Mensagem.objects.create(conversa=conversa, autor=Mensagem.DONA, texto=texto.strip())
         resposta = Mensagem.objects.create(
@@ -313,22 +317,11 @@ def enviar(conversa, texto, usuario=None):
             conversa.titulo = texto.strip()[:80]
         # Só estes campos: o objeto pode estar desatualizado quanto ao post.
         conversa.save(update_fields=['titulo', 'atualizada_em'])
-    transaction.on_commit(lambda: disparar(resposta.pk))
     return resposta
 
 
-def disparar(mensagem_id):
-    """Responde num processo separado: o gunicorn derruba requisições após 30 s."""
-    manage = Path(settings.BASE_DIR) / 'manage.py'
-    subprocess.Popen(
-        [sys.executable, str(manage), 'redator_responder', str(mensagem_id)],
-        cwd=settings.BASE_DIR, start_new_session=True,
-        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-
-
 def responder(mensagem_id):
-    """Executado pelo comando redator_responder: chama o modelo e grava o resultado."""
+    """Chama o modelo e grava o resultado (usado pelo redator_worker)."""
     resposta = Mensagem.objects.select_related('conversa').get(pk=mensagem_id)
     if resposta.estado != Mensagem.PENSANDO:
         return
@@ -365,6 +358,11 @@ def responder(mensagem_id):
                       'Para um novo post, comece outra conversa.',
             )
             conversa.encerrar('Assuntos fora das postagens')
+
+
+def proxima_pendente():
+    return (Mensagem.objects.filter(estado=Mensagem.PENSANDO)
+            .order_by('criada_em', 'pk').values_list('pk', flat=True).first())
 
 
 def expirar_pendentes(conversa):
