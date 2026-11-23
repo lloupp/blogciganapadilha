@@ -11,7 +11,7 @@ from django.core.cache import cache
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -133,7 +133,13 @@ def _buscar_consulta(referencia):
         return None
 
 
+def _consultas_fechadas(request):
+    return not settings.CONSULTAS_ABERTAS and not request.user.is_staff
+
+
 def lista(request):
+    if _consultas_fechadas(request):
+        raise Http404
     tipos = TipoConsulta.objects.filter(ativo=True)
     context = {
         'tipos': tipos,
@@ -143,6 +149,8 @@ def lista(request):
 
 
 def solicitar(request, slug):
+    if _consultas_fechadas(request):
+        raise Http404
     tipo = get_object_or_404(TipoConsulta, slug=slug, ativo=True)
 
     if not settings.MERCADOPAGO_ACCESS_TOKEN:

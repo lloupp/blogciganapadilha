@@ -36,6 +36,7 @@ def _payment(consulta, status='approved', valor=None, payment_id='pay-1'):
     MERCADOPAGO_ACCESS_TOKEN='TEST-token',
     WHATSAPP_NUMERO='5551999999999',
     STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage',
+    CONSULTAS_ABERTAS=True,
 )
 class ConsultasTestCase(TestCase):
     def setUp(self):
@@ -74,6 +75,26 @@ class SolicitarConsultaFormTests(TestCase):
         form = SolicitarConsultaForm({'nome': 'Maria', 'email': 'maria@example.com', 'whatsapp': '99999'})
         self.assertFalse(form.is_valid())
         self.assertIn('whatsapp', form.errors)
+
+
+class ConsultasFechadasTests(ConsultasTestCase):
+    """Com CONSULTAS_ABERTAS=False só staff vê a lista e o formulário."""
+
+    def test_cliente_recebe_404(self):
+        with self.settings(CONSULTAS_ABERTAS=False):
+            self.assertEqual(self.client.get(reverse('consultas:lista')).status_code, 404)
+            url = reverse('consultas:solicitar', args=[self.tipo.slug])
+            self.assertEqual(self.client.get(url).status_code, 404)
+            self.assertEqual(self.client.post(url, {}).status_code, 404)
+
+    def test_staff_continua_acessando(self):
+        from django.contrib.auth import get_user_model
+        staff = get_user_model().objects.create_user('staff', password='x', is_staff=True)
+        self.client.force_login(staff)
+        with self.settings(CONSULTAS_ABERTAS=False):
+            self.assertEqual(self.client.get(reverse('consultas:lista')).status_code, 200)
+            url = reverse('consultas:solicitar', args=[self.tipo.slug])
+            self.assertEqual(self.client.get(url).status_code, 200)
 
 
 class SolicitarViewTests(ConsultasTestCase):

@@ -123,6 +123,11 @@ GOOGLE_ANALYTICS_ID = config('GOOGLE_ANALYTICS_ID', default='')
 MERCADOPAGO_ACCESS_TOKEN = config('MERCADOPAGO_ACCESS_TOKEN', default='')
 MERCADOPAGO_PUBLIC_KEY = config('MERCADOPAGO_PUBLIC_KEY', default='')
 
+# Enquanto False, a lista de consultas e o formulário de compra só abrem
+# para staff (clientes recebem 404), mesmo com tipos ativos no admin.
+# Para abrir ao público: CONSULTAS_ABERTAS=True no .env e recarregar.
+CONSULTAS_ABERTAS = config('CONSULTAS_ABERTAS', default=False, cast=bool)
+
 # ============================================================
 # WhatsApp (contato liberado após o pagamento da consulta)
 # ============================================================
