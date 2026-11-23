@@ -20,7 +20,7 @@ class TagAdmin(admin.ModelAdmin):
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ['titulo', 'categoria', 'status', 'destaque', 'data_publicacao', 'visualizacoes']
+    list_display = ['titulo', 'categoria', 'status', 'situacao', 'destaque', 'data_publicacao', 'visualizacoes']
     list_filter = ['status', 'categoria', 'tags', 'destaque', 'data_publicacao']
     list_editable = ['status', 'destaque']
     search_fields = ['titulo', 'subtitulo', 'conteudo']
@@ -45,6 +45,12 @@ class PostAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    @admin.display(description='No blog')
+    def situacao(self, obj):
+        if obj.esta_agendado:
+            return '⏰ Agendado'
+        return '✅ No ar' if obj.status == 'publicado' else '—'
 
     def save_model(self, request, obj, form, change):
         if obj.status == 'publicado' and not obj.data_publicacao:

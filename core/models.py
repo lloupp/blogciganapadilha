@@ -47,6 +47,12 @@ class Tag(models.Model):
         super().save(*args, **kwargs)
 
 
+class PostQuerySet(models.QuerySet):
+    def publicados(self):
+        """Visíveis ao público: publicados e com data já chegada (agendados ficam de fora)."""
+        return self.filter(status='publicado', data_publicacao__lte=timezone.now())
+
+
 class Post(models.Model):
     STATUS_CHOICES = [
         ('rascunho', 'Rascunho'),
@@ -84,6 +90,8 @@ class Post(models.Model):
     )
     tempo_leitura = models.PositiveIntegerField('Tempo de leitura (min)', default=5)
     visualizacoes = models.PositiveIntegerField('Visualizações', default=0)
+
+    objects = PostQuerySet.as_manager()
 
     class Meta:
         verbose_name = 'Post'
@@ -133,6 +141,10 @@ class Post(models.Model):
         """Retorna a URL de embed do YouTube."""
         vid = self.video_id
         return f'https://www.youtube.com/embed/{vid}' if vid else None
+
+    @property
+    def esta_agendado(self):
+        return self.status == 'publicado' and self.data_publicacao and self.data_publicacao > timezone.now()
 
     @property
     def esta_publicado(self):

@@ -1,0 +1,140 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .redator { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 1000px) { .redator { grid-template-columns: 1fr; } }
+  .redator h2 { margin: 0 0 12px; font-size: 1.1rem; }
+  .redator-msgs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .redator-msg { padding: 10px 14px; border-radius: 10px; line-height: 1.5; max-width: 92%; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .redator-msg small { display: block; opacity: .65; font-size: .75rem; margin-bottom: 2px; white-space: normal; }
+  .redator-msg.dona { align-self: flex-end; background: var(--selected-row, #ffc); border: 1px solid var(--hairline-color, #ddd); }
+  .redator-msg.agente { align-self: flex-start; background: var(--darkened-bg, #f4f4f4); border: 1px solid var(--hairline-color, #ddd); }
+  .redator-msg.sistema { align-self: center; background: transparent; border: 1px dashed var(--hairline-color, #ccc); font-size: .9rem; text-align: center; }
+  .redator-msg.erro { border-color: var(--error-fg, #ba2121); color: var(--error-fg, #ba2121); }
+  .redator-msg .tag-rascunho { display: inline-block; margin-top: 6px; font-size: .8rem; opacity: .8; white-space: normal; }
+  .redator-pensando::after { content: ' ✍️'; }
+  .redator textarea { width: 100%; box-sizing: border-box; min-height: 90px; font-size: 1rem; padding: 8px; }
+  .redator-cota { font-size: .85rem; opacity: .8; margin: 6px 0 10px; }
+  .redator-post { border: 1px solid var(--hairline-color, #ddd); border-radius: 10px; padding: 16px; background: var(--body-bg, #fff); }
+  .redator-post h3 { margin: 0 0 4px; font-size: 1.25rem; text-transform: none; color: var(--body-fg); }
+  .redator-post .sub { opacity: .8; margin: 0 0 10px; }
+  .redator-post .meta { font-size: .85rem; opacity: .75; margin-bottom: 12px; }
+  .redator-post .texto { white-space: pre-wrap; line-height: 1.6; max-height: 60vh; overflow: auto; border-top: 1px solid var(--hairline-color, #eee); padding-top: 12px; }
+  .redator-acoes { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline-color, #eee); }
+  .redator-acoes form { display: flex; gap: 8px; align-items: center; margin: 0; }
+  .redator-acoes input[type=submit], .redator-acoes .button { padding: 8px 14px; }
+  .redator-vazio { opacity: .7; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url 'admin:redator_conversa_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; {{ conversa }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="redator">
+  <section>
+    <h2>💬 Conversa com o agente</h2>
+    <div class="redator-msgs" id="mensagens">
+      {% for m in mensagens %}
+        {% if m.estado == 'pensando' %}
+          <div class="redator-msg agente"><small>Agente</small><span class="redator-pensando">Escrevendo a resposta… (pode levar até 1 minuto)</span></div>
+        {% else %}
+          <div class="redator-msg {{ m.autor }}{% if m.estado == 'erro' %} erro{% endif %}">{% if m.autor != 'sistema' %}<small>{% if m.autor == 'dona' %}Você{% else %}Agente{% endif %} · {{ m.criada_em|date:"d/m H:i" }}</small>{% endif %}{{ m.texto }}{% if m.trouxe_rascunho %}
+<span class="tag-rascunho">📝 Rascunho atualizado ao lado</span>{% endif %}</div>
+        {% endif %}
+      {% empty %}
+        <p class="redator-vazio">Diga sobre o que quer escrever. Exemplo: “Quero um post sobre o significado da carta O Sol no tarô, para quem está começando.”</p>
+      {% endfor %}
+    </div>
+
+    {% if conversa.encerrada %}
+      <p><strong>Esta conversa está encerrada</strong>{% if conversa.motivo_encerramento %} ({{ conversa.motivo_encerramento|lower }}){% endif %}.</p>
+      <p><a class="button" href="{% url 'admin:redator_conversa_add' %}">➕ Nova conversa</a></p>
+    {% else %}
+      <form method="post" action="{% url 'admin:redator_conversa_enviar' conversa.pk %}" id="form-enviar">
+        {% csrf_token %}
+        <textarea name="texto" maxlength="{{ max_caracteres }}" placeholder="Escreva aqui o que quer no post ou o que mudar no rascunho…" {% if pensando %}disabled{% endif %} required></textarea>
+        <div class="redator-cota">
+          Restam {{ restantes_hoje }} mensage{{ restantes_hoje|pluralize:"m,ns" }} hoje e {{ restantes_conversa }} nesta conversa.
+          O agente só ajuda com as postagens do blog.
+        </div>
+        <input type="submit" class="default" value="Enviar" {% if pensando %}disabled{% endif %}>
+      </form>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2>📝 Rascunho do post</h2>
+    {% if post %}
+      <div class="redator-post">
+        <h3>{{ post.titulo }}</h3>
+        {% if post.subtitulo %}<p class="sub">{{ post.subtitulo }}</p>{% endif %}
+        <div class="meta">
+          {% if post.esta_agendado %}⏰ Agendado para {{ post.data_publicacao|date:"d/m/Y H:i" }}
+          {% elif post.status == 'publicado' %}✅ Publicado em {{ post.data_publicacao|date:"d/m/Y H:i" }}
+          {% else %}Rascunho (ainda não aparece no blog){% endif %}
+          · {{ post.categoria|default:"sem categoria" }} · {{ post.tempo_leitura }} min
+          {% with tags=post.tags.all %}{% if tags %}· {{ tags|join:", " }}{% endif %}{% endwith %}
+        </div>
+        {% if post.imagem_destaque %}<p><img src="{{ post.imagem_destaque.url }}" alt="" style="max-width:100%;border-radius:8px"></p>{% endif %}
+        <div class="texto">{{ post.conteudo }}</div>
+
+        <div class="redator-acoes">
+          {% if post_rascunho and not pensando %}
+            <form method="post" action="{% url 'admin:redator_conversa_publicar' conversa.pk %}">
+              {% csrf_token %}
+              <input type="submit" class="default" value="✅ Aprovar e publicar agora">
+            </form>
+            <form method="post" action="{% url 'admin:redator_conversa_agendar' conversa.pk %}">
+              {% csrf_token %}
+              <input type="datetime-local" name="quando" min="{{ agora_local }}" required>
+              <input type="submit" value="⏰ Aprovar e agendar">
+            </form>
+          {% endif %}
+          <a class="button" href="{% url 'admin:core_post_change' post.pk %}">✏️ Abrir no editor (imagem, ajustes)</a>
+          {% if post.status == 'publicado' and not post.esta_agendado %}<a class="button" href="{{ post.get_absolute_url }}" target="_blank">Ver no blog</a>{% endif %}
+        </div>
+      </div>
+    {% else %}
+      <p class="redator-vazio">O rascunho aparece aqui quando o agente escrever o post. Nada é publicado sem você aprovar.</p>
+    {% endif %}
+  </section>
+</div>
+
+{% if pensando %}
+<script>
+  (function () {
+    var url = "{% url 'admin:redator_conversa_estado' conversa.pk %}";
+    function checar() {
+      fetch(url, {credentials: 'same-origin', cache: 'no-store'})
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d.pensando) { setTimeout(checar, 3000); } else { location.reload(); } })
+        .catch(function () { setTimeout(checar, 6000); });
+    }
+    setTimeout(checar, 3000);
+  })();
+</script>
+{% endif %}
+<script>
+  (function () {
+    var form = document.getElementById('form-enviar');
+    if (!form) return;
+    var box = form.querySelector('textarea');
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { form.requestSubmit(); }
+    });
+    form.addEventListener('submit', function () {
+      form.querySelector('input[type=submit]').disabled = true;
+    });
+    window.scrollTo(0, document.body.scrollHeight);
+  })();
+</script>
+{% endblock %}

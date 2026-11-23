@@ -41,7 +41,7 @@ def sitemap_xml(request):
         prio.text = priority
 
     # Posts publicados
-    for post in Post.objects.filter(status='publicado'):
+    for post in Post.objects.publicados():
         url = ET.SubElement(urlset, 'url')
         loc = ET.SubElement(url, 'loc')
         loc.text = request.build_absolute_uri(post.get_absolute_url())
@@ -67,14 +67,9 @@ def sitemap_xml(request):
 
 
 def home(request):
-    posts_destaque = Post.objects.filter(
-        status='publicado',
-        destaque=True
-    ).select_related('categoria').prefetch_related('tags')[:3]
+    posts_destaque = Post.objects.publicados().filter(destaque=True).select_related('categoria').prefetch_related('tags')[:3]
 
-    posts_recentes = Post.objects.filter(
-        status='publicado'
-    ).select_related('categoria').prefetch_related('tags')[:6]
+    posts_recentes = Post.objects.publicados().select_related('categoria').prefetch_related('tags')[:6]
 
     categorias = Categoria.objects.filter(ativo=True)
 
@@ -87,7 +82,7 @@ def home(request):
 
 
 def post_list(request):
-    queryset = Post.objects.filter(status='publicado').select_related('categoria').prefetch_related('tags')
+    queryset = Post.objects.publicados().select_related('categoria').prefetch_related('tags')
 
     # Filtros
     categoria_slug = request.GET.get('categoria')
@@ -125,17 +120,14 @@ def post_list(request):
 
 def post_detail(request, slug):
     post = get_object_or_404(
-        Post.objects.select_related('categoria').prefetch_related('tags'),
+        Post.objects.publicados().select_related('categoria').prefetch_related('tags'),
         slug=slug,
-        status='publicado'
     )
 
     post.incrementar_visualizacoes()
 
     # Posts relacionados (mesma categoria ou tags)
-    posts_relacionados = Post.objects.filter(
-        status='publicado'
-    ).exclude(pk=post.pk)
+    posts_relacionados = Post.objects.publicados().exclude(pk=post.pk)
 
     if post.categoria:
         posts_relacionados = posts_relacionados.filter(categoria=post.categoria)
@@ -155,10 +147,7 @@ def post_detail(request, slug):
 
 def categoria_detail(request, slug):
     categoria = get_object_or_404(Categoria, slug=slug, ativo=True)
-    posts = Post.objects.filter(
-        categoria=categoria,
-        status='publicado'
-    ).select_related('categoria').prefetch_related('tags')
+    posts = Post.objects.publicados().filter(categoria=categoria).select_related('categoria').prefetch_related('tags')
 
     paginator = Paginator(posts, 9)
     page = request.GET.get('page')
@@ -173,10 +162,7 @@ def categoria_detail(request, slug):
 
 def tag_detail(request, slug):
     tag = get_object_or_404(Tag, slug=slug)
-    posts = Post.objects.filter(
-        tags=tag,
-        status='publicado'
-    ).select_related('categoria').prefetch_related('tags')
+    posts = Post.objects.publicados().filter(tags=tag).select_related('categoria').prefetch_related('tags')
 
     paginator = Paginator(posts, 9)
     page = request.GET.get('page')

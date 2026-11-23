@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'django.contrib.sitemaps',
     'core',
     'consultas',
+    'redator',
     'axes',
 ]
 
@@ -127,6 +128,19 @@ MERCADOPAGO_PUBLIC_KEY = config('MERCADOPAGO_PUBLIC_KEY', default='')
 # para staff (clientes recebem 404), mesmo com tipos ativos no admin.
 # Para abrir ao público: CONSULTAS_ABERTAS=True no .env e recarregar.
 CONSULTAS_ABERTAS = config('CONSULTAS_ABERTAS', default=False, cast=bool)
+
+# ============================================================
+# Agente de postagens (admin → "Agente de postagens"), via opencode
+# ============================================================
+REDATOR_MODELO = config('REDATOR_MODELO', default='opencode-go/kimi-k3.1-pro')
+REDATOR_OPENCODE_BIN = config(
+    'REDATOR_OPENCODE_BIN', default=str(Path.home() / '.opencode' / 'bin' / 'opencode'))
+REDATOR_TIMEOUT = config('REDATOR_TIMEOUT', default=300, cast=int)  # segundos por resposta
+# Limites para o agente não virar um bate-papo e gastar a cota do opencode-go:
+REDATOR_MSGS_POR_DIA = config('REDATOR_MSGS_POR_DIA', default=30, cast=int)
+REDATOR_MSGS_POR_CONVERSA = config('REDATOR_MSGS_POR_CONVERSA', default=20, cast=int)
+REDATOR_MAX_CARACTERES = config('REDATOR_MAX_CARACTERES', default=1500, cast=int)
+REDATOR_FORA_DO_ASSUNTO_MAX = config('REDATOR_FORA_DO_ASSUNTO_MAX', default=2, cast=int)
 
 # ============================================================
 # WhatsApp (contato liberado após o pagamento da consulta)
