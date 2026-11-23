@@ -139,6 +139,16 @@ class FluxoAgenteTests(TestCase):
 
 @override_settings(**CONFIG, REDATOR_MODELO='go/gratis', REDATOR_MODELO_RESERVA='go/pago')
 class ModeloReservaTests(TestCase):
+    @override_settings(REDATOR_MODELO_RESERVA='go/gratis2, go/pago')
+    def test_reservas_em_ordem(self):
+        def rodar(prompt, modelo):
+            if modelo != 'go/pago':
+                raise agente.ErroAgente('falhou')
+            return ('ok', 1, 1)
+        with mock.patch.object(agente, '_rodar_opencode', side_effect=rodar) as m:
+            agente.chamar_opencode('p')
+        self.assertEqual([c.args[1] for c in m.call_args_list], ['go/gratis', 'go/gratis2', 'go/pago'])
+
     def test_usa_reserva_quando_o_principal_falha(self):
         def rodar(prompt, modelo):
             if modelo == 'go/gratis':

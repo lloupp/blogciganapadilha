@@ -148,7 +148,8 @@ def chamar_opencode(prompt):
 
     Devolve (texto, tokens_entrada, tokens_saida).
     """
-    modelos = [m for m in (settings.REDATOR_MODELO, settings.REDATOR_MODELO_RESERVA) if m]
+    reservas = settings.REDATOR_MODELO_RESERVA.split(',')
+    modelos = [m.strip() for m in [settings.REDATOR_MODELO, *reservas] if m.strip()]
     erro = None
     for modelo in dict.fromkeys(modelos):
         try:
