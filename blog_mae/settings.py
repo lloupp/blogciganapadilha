@@ -132,7 +132,10 @@ CONSULTAS_ABERTAS = config('CONSULTAS_ABERTAS', default=False, cast=bool)
 # ============================================================
 # Agente de postagens (admin → "Agente de postagens"), via opencode
 # ============================================================
-REDATOR_MODELO = config('REDATOR_MODELO', default='opencode-go/kimi-k3.1-pro')
+# Gratuito por padrão; se ele falhar (fora do ar, limite), a resposta sai pela reserva.
+# Deixe REDATOR_MODELO_RESERVA vazio para nunca usar modelo pago.
+REDATOR_MODELO = config('REDATOR_MODELO', default='opencode-go/beam-free')
+REDATOR_MODELO_RESERVA = config('REDATOR_MODELO_RESERVA', default='opencode-go/kimi-k3.1-pro')
 REDATOR_OPENCODE_BIN = config(
     'REDATOR_OPENCODE_BIN', default=str(Path.home() / '.opencode' / 'bin' / 'opencode'))
 REDATOR_TIMEOUT = config('REDATOR_TIMEOUT', default=300, cast=int)  # segundos por resposta

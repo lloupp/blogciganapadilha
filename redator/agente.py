@@ -144,10 +144,25 @@ class ErroAgente(Exception):
 
 
 def chamar_opencode(prompt):
-    """Roda o agente e devolve (texto, tokens_entrada, tokens_saida)."""
+    """Tenta o modelo principal e, se falhar, o de reserva.
+
+    Devolve (texto, tokens_entrada, tokens_saida).
+    """
+    modelos = [m for m in (settings.REDATOR_MODELO, settings.REDATOR_MODELO_RESERVA) if m]
+    erro = None
+    for modelo in dict.fromkeys(modelos):
+        try:
+            return _rodar_opencode(prompt, modelo)
+        except ErroAgente as exc:
+            logger.warning('Agente de postagens: modelo %s falhou: %s', modelo, exc)
+            erro = exc
+    raise erro
+
+
+def _rodar_opencode(prompt, modelo):
     cmd = [
         settings.REDATOR_OPENCODE_BIN, 'run',
-        '--model', settings.REDATOR_MODELO,
+        '--model', modelo,
         '--agent', 'redator',
         '--format', 'json',
         '--archived',

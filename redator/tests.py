@@ -137,6 +137,29 @@ class FluxoAgenteTests(TestCase):
         self.assertIn('encerrada', agente.motivo_bloqueio(self.conversa, 'oi'))
 
 
+@override_settings(**CONFIG, REDATOR_MODELO='go/gratis', REDATOR_MODELO_RESERVA='go/pago')
+class ModeloReservaTests(TestCase):
+    def test_usa_reserva_quando_o_principal_falha(self):
+        def rodar(prompt, modelo):
+            if modelo == 'go/gratis':
+                raise agente.ErroAgente('limite atingido')
+            return ('ok', 1, 1)
+        with mock.patch.object(agente, '_rodar_opencode', side_effect=rodar) as m:
+            self.assertEqual(agente.chamar_opencode('p'), ('ok', 1, 1))
+        self.assertEqual([c.args[1] for c in m.call_args_list], ['go/gratis', 'go/pago'])
+
+    def test_principal_ok_nao_chama_reserva(self):
+        with mock.patch.object(agente, '_rodar_opencode', return_value=('ok', 1, 1)) as m:
+            agente.chamar_opencode('p')
+        m.assert_called_once_with('p', 'go/gratis')
+
+    @override_settings(REDATOR_MODELO_RESERVA='')
+    def test_sem_reserva_propaga_o_erro(self):
+        with mock.patch.object(agente, '_rodar_opencode', side_effect=agente.ErroAgente('x')):
+            with self.assertRaises(agente.ErroAgente):
+                agente.chamar_opencode('p')
+
+
 @override_settings(**CONFIG)
 class LimitesTests(TestCase):
     def setUp(self):
