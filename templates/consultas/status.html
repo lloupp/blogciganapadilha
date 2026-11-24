@@ -9,6 +9,14 @@
 {% endblock %}
 
 {% block content %}
+<style>
+.pix-box { max-width: 420px; margin: 0 auto 2rem; text-align: center; display: flex; flex-direction: column; gap: .75rem; align-items: center; }
+.pix-qr { background: #fff; padding: 12px; border-radius: 16px; width: 240px; height: 240px; }
+.pix-rotulo { font-size: .9rem; opacity: .8; }
+.pix-codigo { width: 100%; font-family: monospace; font-size: .8rem; padding: .6rem; border-radius: 10px; resize: none; word-break: break-all; }
+.pix-aviso { font-size: .95rem; }
+.pix-prazo { font-size: .85rem; opacity: .75; margin: 0; }
+</style>
 {% if consulta.status == 'aprovado' %}
 <div class="page-header">
     <h1 class="page-title"><span class="emoji">✅</span> Pagamento confirmado!</h1>
@@ -17,6 +25,48 @@
 {% if chat_url %}
     {% include 'consultas/_chat_cta.html' %}
 {% endif %}
+{% elif pix and pix_vencido %}
+<div class="page-header">
+    <h1 class="page-title"><span class="emoji">⌛</span> Este Pix venceu</h1>
+    <p class="page-subtitle">O prazo para pagar terminou. Se você já pagou, aguarde: confirmamos em instantes. Se não, peça a consulta de novo.</p>
+</div>
+<div style="text-align: center; margin-bottom: 1.5rem;">
+    <a href="{% url 'consultas:lista' %}" class="btn btn-primary">Pedir novamente</a>
+</div>
+{% elif pix %}
+<div class="page-header">
+    <h1 class="page-title"><span class="emoji">💠</span> Pague com Pix</h1>
+    <p class="page-subtitle">
+        R$ {{ consulta.valor }} — {{ consulta.tipo_consulta.nome }}.<br>
+        Abra o app do seu banco, escolha Pix e leia o QR Code ou use o “copia e cola”.
+    </p>
+</div>
+<div class="pix-box">
+    <img class="pix-qr" src="data:image/png;base64,{{ consulta.pix_qr_base64 }}" alt="QR Code do Pix" width="240" height="240">
+    <label for="pix-codigo" class="pix-rotulo">Pix copia e cola</label>
+    <textarea id="pix-codigo" class="pix-codigo" readonly rows="3">{{ consulta.pix_copia_cola }}</textarea>
+    <button type="button" class="btn btn-primary" id="pix-copiar">📋 Copiar código</button>
+    <p class="pix-aviso" id="pix-estado">⏳ Aguardando o pagamento… esta página confirma sozinha.</p>
+    {% if consulta.pix_expira_em %}<p class="pix-prazo">Pague até {{ consulta.pix_expira_em|date:"H:i" }} de {{ consulta.pix_expira_em|date:"d/m" }}.</p>{% endif %}
+</div>
+<script>
+(function () {
+    var botao = document.getElementById('pix-copiar'), campo = document.getElementById('pix-codigo');
+    botao.addEventListener('click', function () {
+        var pronto = function () { botao.textContent = '✅ Código copiado!'; setTimeout(function () { botao.textContent = '📋 Copiar código'; }, 3000); };
+        if (navigator.clipboard) { navigator.clipboard.writeText(campo.value).then(pronto, function () { campo.select(); document.execCommand('copy'); pronto(); }); }
+        else { campo.select(); document.execCommand('copy'); pronto(); }
+    });
+    var url = "{% url 'consultas:verificar' consulta.referencia %}", tentativas = 0;
+    function verificar() {
+        if (++tentativas > 600) return;  // ~40 min
+        fetch(url, {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
+            if (d.status !== 'pendente') { location.reload(); } else { setTimeout(verificar, 4000); }
+        }).catch(function () { setTimeout(verificar, 8000); });
+    }
+    setTimeout(verificar, 4000);
+})();
+</script>
 {% elif consulta.status == 'pendente' %}
 <div class="page-header">
     <h1 class="page-title"><span class="emoji">⏳</span> Confirmando seu pagamento…</h1>

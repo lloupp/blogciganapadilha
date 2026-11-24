@@ -97,59 +97,120 @@ class ConsultasFechadasTests(ConsultasTestCase):
             self.assertEqual(self.client.get(url).status_code, 200)
 
 
+def _order(consulta, status='action_required', pago='0.00', order_id='ORD1'):
+    return {
+        'id': order_id, 'status': status, 'external_reference': str(consulta.referencia),
+        'total_amount': f'{consulta.valor:.2f}', 'total_paid_amount': pago,
+        'transactions': {'payments': [{
+            'id': 'PAY1', 'date_of_expiration': '2099-01-01T12:00:00.000+00:00',
+            'payment_method': {'id': 'pix', 'qr_code': '000201PIXCOPIAECOLA', 'qr_code_base64': 'iVBORw0KGgo='},
+        }]},
+    }
+
+
+def _resposta(json_data, status=201):
+    r = mock.Mock(status_code=status)
+    r.json.return_value = json_data
+    return r
+
+
 class SolicitarViewTests(ConsultasTestCase):
     def _post(self, **overrides):
         dados = {'nome': 'Maria', 'email': 'maria@example.com', 'whatsapp': '(51) 99999-8888'}
         dados.update(overrides)
         return self.client.post(reverse('consultas:solicitar', kwargs={'slug': self.tipo.slug}), dados)
 
-    @mock.patch('consultas.views.mercadopago.SDK')
-    def test_post_valido_cria_consulta_e_redireciona(self, sdk_cls):
-        sdk_cls.return_value = _mock_sdk()
-        response = self._post()
-        self.assertRedirects(response, 'https://mp.test/init', fetch_redirect_response=False)
+    def _post_com_pix(self, **overrides):
+        def criar(url, json, headers, timeout):
+            consulta = Consulta.objects.get(referencia=json['external_reference'])
+            self.corpo = json
+            return _resposta(_order(consulta))
+        with mock.patch('consultas.views.requests.post', side_effect=criar):
+            return self._post(**overrides)
+
+    def test_post_valido_gera_pix_e_mostra_qr_code(self):
+        response = self._post_com_pix()
         consulta = Consulta.objects.get()
+        self.assertRedirects(response, consulta.get_status_url(), fetch_redirect_response=False)
         self.assertEqual(consulta.valor, self.tipo.preco)
         self.assertEqual(consulta.whatsapp_cliente, '5551999998888')
-        self.assertEqual(consulta.mp_preference_id, 'pref-123')
+        self.assertEqual(consulta.mp_order_id, 'ORD1')
+        self.assertEqual(consulta.pix_copia_cola, '000201PIXCOPIAECOLA')
         self.assertEqual(consulta.status, 'pendente')
+        self.assertEqual(self.corpo['transactions']['payments'][0]['payment_method']['id'], 'pix')
+        self.assertEqual(self.corpo['total_amount'], '80.00')
+        with mock.patch('consultas.views.requests.get', return_value=_resposta(_order(consulta), 200)):
+            pagina = self.client.get(consulta.get_status_url())
+        self.assertContains(pagina, '000201PIXCOPIAECOLA')
+        self.assertContains(pagina, 'data:image/png;base64,iVBORw0KGgo=')
+        self.assertNotContains(pagina, 'http-equiv="refresh"')
 
-    @mock.patch('consultas.views.mercadopago.SDK')
-    def test_preferencia_exclui_boleto(self, sdk_cls):
-        sdk = _mock_sdk()
-        sdk_cls.return_value = sdk
-        self._post()
-        preference_data = sdk.preference.return_value.create.call_args[0][0]
-        excluidos = preference_data['payment_methods']['excluded_payment_types']
-        self.assertIn({'id': 'ticket'}, excluidos)
-
-    @mock.patch('consultas.views.mercadopago.SDK')
-    def test_post_invalido_nao_cria_consulta(self, sdk_cls):
-        sdk_cls.return_value = _mock_sdk()
-        response = self._post(email='invalido')
+    def test_post_invalido_nao_cria_consulta(self):
+        response = self._post_com_pix(email='invalido')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Consulta.objects.count(), 0)
         self.assertContains(response, 'form-group')
 
-    @mock.patch('consultas.views.mercadopago.SDK')
-    def test_falha_do_sdk_cancela_consulta(self, sdk_cls):
-        sdk = _mock_sdk()
-        sdk.preference.return_value.create.side_effect = RuntimeError('MP fora do ar')
-        sdk_cls.return_value = sdk
-        response = self._post()
+    def test_falha_do_mercado_pago_cancela_consulta(self):
+        with mock.patch('consultas.views.requests.post', return_value=_resposta({'message': 'erro'}, 400)):
+            response = self._post()
         self.assertRedirects(response, reverse('consultas:lista'))
         self.assertEqual(Consulta.objects.get().status, 'cancelado')
 
-    @mock.patch('consultas.views.mercadopago.SDK')
-    def test_throttle_bloqueia_sexto_post(self, sdk_cls):
-        sdk_cls.return_value = _mock_sdk()
+    def test_throttle_bloqueia_sexto_post(self):
         for _ in range(5):
-            self._post()
+            self._post_com_pix()
         self.assertEqual(Consulta.objects.count(), 5)
-        response = self._post()
+        response = self._post_com_pix()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Consulta.objects.count(), 5)
         self.assertContains(response, 'Muitas tentativas')
+
+
+class PixStatusTests(ConsultasTestCase):
+    def setUp(self):
+        super().setUp()
+        self.consulta = self._criar_consulta(mp_order_id='ORD1', pix_copia_cola='000201X', pix_qr_base64='iVBO')
+
+    def _verificar(self, order):
+        cache.clear()
+        with mock.patch('consultas.views.requests.get', return_value=_resposta(order, 200)):
+            return self.client.get(reverse('consultas:verificar', args=[self.consulta.referencia])).json()
+
+    def test_pago_aprova(self):
+        self.assertEqual(self._verificar(_order(self.consulta, 'processed', '80.00'))['status'], 'aprovado')
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.status, 'aprovado')
+
+    def test_aguardando_continua_pendente(self):
+        self.assertEqual(self._verificar(_order(self.consulta))['status'], 'pendente')
+
+    def test_vencido_cancela(self):
+        self.assertEqual(self._verificar(_order(self.consulta, 'expired'))['status'], 'cancelado')
+
+    def test_valor_divergente_nao_aprova(self):
+        self.assertEqual(self._verificar(_order(self.consulta, 'processed', '1.00'))['status'], 'pendente')
+        self.consulta.refresh_from_db()
+        self.assertTrue(self.consulta.pagamento_divergente)
+
+    def test_pedido_de_outra_consulta_e_ignorado(self):
+        outra = self._criar_consulta()
+        self.assertEqual(self._verificar(_order(outra, 'processed', '80.00'))['status'], 'pendente')
+
+    def test_nao_consulta_o_mp_a_cada_requisicao(self):
+        cache.clear()
+        with mock.patch('consultas.views.requests.get', return_value=_resposta(_order(self.consulta), 200)) as get:
+            for _ in range(3):
+                self.client.get(reverse('consultas:verificar', args=[self.consulta.referencia]))
+        self.assertEqual(get.call_count, 1)
+
+    def test_webhook_de_order_aprova(self):
+        with mock.patch('consultas.views.requests.get',
+                        return_value=_resposta(_order(self.consulta, 'processed', '80.00'), 200)):
+            r = self.client.post(reverse('consultas:webhook') + '?type=order&data.id=ORD1')
+        self.assertEqual(r.json()['status'], 'ok')
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.status, 'aprovado')
 
 
 class WebhookTests(ConsultasTestCase):

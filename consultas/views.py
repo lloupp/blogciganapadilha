@@ -4,7 +4,10 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 
+import uuid
+
 import mercadopago
+import requests
 from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
@@ -15,6 +18,7 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -124,6 +128,119 @@ def _aplicar_pagamento(consulta, payment):
     return consulta
 
 
+# ============================================================
+# Pix direto na página (API de Orders do Mercado Pago)
+# ============================================================
+
+MP_API = 'https://api.mercadopago.com'
+PIX_VALIDADE = 'PT30M'  # ISO 8601: 30 minutos para pagar
+VERIFICAR_INTERVALO = 4  # segundos mínimos entre consultas ao MP por consulta
+
+ORDER_STATUS_MAP = {
+    'processed': 'aprovado',
+    'action_required': 'pendente',
+    'processing': 'pendente',
+    'expired': 'cancelado',
+    'canceled': 'cancelado',
+    'cancelled': 'cancelado',
+    'refunded': 'cancelado',
+    'charged_back': 'cancelado',
+    'failed': 'rejeitado',
+}
+
+
+class ErroMercadoPago(Exception):
+    pass
+
+
+def _mp_headers():
+    return {
+        'Authorization': f'Bearer {settings.MERCADOPAGO_ACCESS_TOKEN}',
+        'X-Idempotency-Key': str(uuid.uuid4()),
+    }
+
+
+def _criar_pix(consulta):
+    """Cria o pedido Pix no Mercado Pago e grava o QR Code na consulta."""
+    valor = f'{consulta.valor:.2f}'
+    corpo = {
+        'type': 'online',
+        'processing_mode': 'automatic',
+        'external_reference': str(consulta.referencia),
+        'total_amount': valor,
+        'description': f'Consulta: {consulta.tipo_consulta.nome}',
+        'payer': {'email': consulta.email_cliente, 'first_name': consulta.nome_cliente[:60]},
+        'transactions': {'payments': [{
+            'amount': valor,
+            'payment_method': {'id': 'pix', 'type': 'bank_transfer'},
+            'expiration_time': PIX_VALIDADE,
+        }]},
+    }
+    try:
+        resp = requests.post(f'{MP_API}/v1/orders', json=corpo, headers=_mp_headers(), timeout=20)
+        order = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise ErroMercadoPago(str(exc))
+    if resp.status_code not in (200, 201) or not order.get('id'):
+        raise ErroMercadoPago(f'HTTP {resp.status_code}: {str(order)[:300]}')
+    pagamento = (order.get('transactions') or {}).get('payments', [{}])[0]
+    metodo = pagamento.get('payment_method') or {}
+    consulta.mp_order_id = order['id']
+    consulta.mp_payment_id = pagamento.get('id', '')
+    consulta.pix_copia_cola = metodo.get('qr_code', '')
+    consulta.pix_qr_base64 = metodo.get('qr_code_base64', '')
+    consulta.pix_expira_em = parse_datetime(pagamento.get('date_of_expiration') or '')
+    consulta.save(update_fields=['mp_order_id', 'mp_payment_id', 'pix_copia_cola', 'pix_qr_base64',
+                                 'pix_expira_em', 'atualizado_em'])
+    return consulta
+
+
+def _buscar_order(order_id):
+    try:
+        resp = requests.get(f'{MP_API}/v1/orders/{order_id}',
+                            headers={'Authorization': f'Bearer {settings.MERCADOPAGO_ACCESS_TOKEN}'},
+                            timeout=20)
+        return resp.json() if resp.status_code == 200 else None
+    except (requests.RequestException, ValueError):
+        logger.exception('Erro ao consultar o pedido %s no Mercado Pago', order_id)
+        return None
+
+
+def _aplicar_order(consulta, order):
+    """Aplica o estado de um pedido (rebuscado autenticado na API) à consulta."""
+    if order.get('external_reference') != str(consulta.referencia):
+        return consulta
+    status_mp = order.get('status')
+    novo_status = ORDER_STATUS_MAP.get(status_mp)
+    if status_mp == 'processed':
+        try:
+            pago = Decimal(str(order.get('total_paid_amount')))
+        except (InvalidOperation, TypeError):
+            pago = None
+        if pago != consulta.valor:
+            logger.warning('Pedido %s com valor divergente na consulta %s: pago %s, esperado %s',
+                           order.get('id'), consulta.pk, pago, consulta.valor)
+            consulta.pagamento_divergente = True
+            consulta.save(update_fields=['pagamento_divergente', 'atualizado_em'])
+            return consulta
+    if novo_status and novo_status != consulta.status and consulta.pode_transicionar(novo_status):
+        consulta.status = novo_status
+        consulta.save(update_fields=['status', 'atualizado_em'])
+    return consulta
+
+
+def _atualizar_pelo_mp(consulta):
+    """Rebusca o pedido no MP (no máximo a cada VERIFICAR_INTERVALO s por consulta)."""
+    if consulta.status != 'pendente' or not consulta.mp_order_id:
+        return consulta
+    chave = f'pix-verificado:{consulta.pk}'
+    if cache.get(chave):
+        return consulta
+    cache.set(chave, 1, VERIFICAR_INTERVALO)
+    order = _buscar_order(consulta.mp_order_id)
+    return _aplicar_order(consulta, order) if order else consulta
+
+
 def _buscar_consulta(referencia):
     if not referencia:
         return None
@@ -175,47 +292,15 @@ def solicitar(request, slug):
             valor=tipo.preco,
         )
 
-        preference_data = {
-            'items': [{
-                'title': f'Consulta: {tipo.nome}',
-                'quantity': 1,
-                'unit_price': float(tipo.preco),
-                'currency_id': 'BRL',
-            }],
-            'payer': {
-                'name': dados['nome'],
-                'email': dados['email'],
-            },
-            'external_reference': str(consulta.referencia),
-            'back_urls': {
-                'success': request.build_absolute_uri(reverse('consultas:sucesso')),
-                'pending': request.build_absolute_uri(reverse('consultas:pendente')),
-                'failure': request.build_absolute_uri(reverse('consultas:erro')),
-            },
-            'auto_return': 'approved',
-            'notification_url': request.build_absolute_uri(reverse('consultas:webhook')),
-            # Boleto leva dias para compensar e deixaria a consulta pendente
-            # por tempo demais; só cartão e Pix.
-            'payment_methods': {
-                'excluded_payment_types': [{'id': 'ticket'}],
-            },
-        }
-
         try:
-            sdk = _mp_sdk()
-            result = sdk.preference().create(preference_data)
-            preference = result['response']
-            init_point = preference['init_point']
-        except Exception:
-            logger.exception('Erro ao criar preferência do Mercado Pago para a consulta %s', consulta.pk)
+            _criar_pix(consulta)
+        except ErroMercadoPago as exc:
+            logger.error('Erro ao criar o Pix da consulta %s: %s', consulta.pk, exc)
             consulta.status = 'cancelado'
             consulta.save(update_fields=['status'])
-            messages.error(request, 'Não foi possível iniciar o pagamento agora. Tente novamente em instantes.')
+            messages.error(request, 'Não foi possível gerar o Pix agora. Tente novamente em instantes.')
             return redirect('consultas:lista')
-
-        consulta.mp_preference_id = preference.get('id', '')
-        consulta.save(update_fields=['mp_preference_id'])
-        return redirect(init_point)
+        return redirect(consulta.get_status_url())
 
     return render(request, 'consultas/solicitar.html', {'tipo': tipo, 'form': SolicitarConsultaForm()})
 
@@ -257,22 +342,37 @@ def sucesso(request):
 
 
 def status(request, referencia):
-    consulta = get_object_or_404(Consulta, referencia=referencia)
+    consulta = _atualizar_pelo_mp(get_object_or_404(Consulta, referencia=referencia))
     try:
         tentativa = int(request.GET.get('t', 0))
     except ValueError:
         tentativa = 0
 
     aprovado = consulta.status == 'aprovado'
-    auto_refresh = consulta.status == 'pendente' and tentativa < 5
+    pix = consulta.status == 'pendente' and bool(consulta.pix_copia_cola)
+    # Com Pix na tela, quem verifica é o JavaScript (sem recarregar a página).
+    auto_refresh = consulta.status == 'pendente' and not pix and tentativa < 5
     context = {
         'consulta': consulta,
         'whatsapp_url': _whatsapp_url(consulta) if aprovado else '',
         'auto_refresh': auto_refresh,
+        'pix': pix,
+        'pix_vencido': pix and consulta.pix_expira_em and consulta.pix_expira_em < timezone.now(),
         'proxima_url': f'{consulta.get_status_url()}?t={tentativa + 1}',
         **_chat_context(consulta),
     }
     return render(request, 'consultas/status.html', context)
+
+
+@never_cache
+@require_GET
+def verificar(request, referencia):
+    """Usado pela página do Pix para saber se o pagamento já caiu."""
+    consulta = _buscar_consulta(str(referencia))
+    if consulta is None:
+        raise Http404
+    consulta = _atualizar_pelo_mp(consulta)
+    return JsonResponse({'status': consulta.status})
 
 
 def pendente(request):
@@ -311,6 +411,16 @@ def webhook(request):
             body = {}
         payment_id = payment_id or (body.get('data') or {}).get('id')
         topic = topic or body.get('type')
+
+    if topic == 'order':
+        if not payment_id or not settings.MERCADOPAGO_ACCESS_TOKEN:
+            return JsonResponse({'status': 'ignored'})
+        order = _buscar_order(payment_id)
+        consulta = _buscar_consulta((order or {}).get('external_reference'))
+        if consulta is None:
+            return JsonResponse({'status': 'ignored'})
+        _aplicar_order(consulta, order)
+        return JsonResponse({'status': 'ok'})
 
     if topic and topic != 'payment':
         return JsonResponse({'status': 'ignored'})

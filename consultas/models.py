@@ -61,6 +61,11 @@ class Consulta(models.Model):
     pagamento_divergente = models.BooleanField('Pagamento com valor divergente', default=False)
     mp_preference_id = models.CharField('ID da preferência (Mercado Pago)', max_length=100, blank=True)
     mp_payment_id = models.CharField('ID do pagamento (Mercado Pago)', max_length=100, blank=True)
+    # Pix direto na página (API de Orders do Mercado Pago)
+    mp_order_id = models.CharField('ID do pedido (Mercado Pago)', max_length=100, blank=True)
+    pix_copia_cola = models.TextField('Pix copia e cola', blank=True)
+    pix_qr_base64 = models.TextField('QR Code do Pix (base64)', blank=True)
+    pix_expira_em = models.DateTimeField('Pix vence em', null=True, blank=True)
     criado_em = models.DateTimeField('Criado em', auto_now_add=True)
     atualizado_em = models.DateTimeField('Atualizado em', auto_now=True)
 

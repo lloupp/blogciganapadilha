@@ -11,6 +11,7 @@ urlpatterns = [
     path('erro/', views.erro, name='erro'),
     path('webhook/mercadopago/', views.webhook, name='webhook'),
     path('status/<uuid:referencia>/', views.status, name='status'),
+    path('status/<uuid:referencia>/verificar/', views.verificar, name='verificar'),
     path('chat/<uuid:referencia>/', views.chat, name='chat'),
     path('chat/<uuid:referencia>/mensagens/', views.chat_mensagens, name='chat_mensagens'),
     path('chat/<uuid:referencia>/enviar/', views.chat_enviar, name='chat_enviar'),
