@@ -154,6 +154,18 @@ TELEGRAM_CHAT_ID = config('TELEGRAM_CHAT_ID', default='')  # vários: separados 
 SITE_URL = config('SITE_URL', default='https://blogciganapadilha.com.br')
 
 # ============================================================
+# E-mails para as clientes (Brevo, via SMTP). Sem EMAIL_HOST_PASSWORD = não envia.
+# ============================================================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST', default='smtp-relay.brevo.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Cigana Padilha <contato@blogciganapadilha.com.br>')
+
+# ============================================================
 # WhatsApp (contato liberado após o pagamento da consulta)
 # ============================================================
 # Formato internacional só com dígitos, ex.: 5551999999999

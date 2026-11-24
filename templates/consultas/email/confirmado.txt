@@ -1,0 +1,11 @@
+Olá, {{ primeiro_nome }}!
+
+Seu pagamento foi confirmado. Obrigada pela confiança! 🌙
+
+Entre no chat da sua consulta ({{ consulta.tipo_consulta.nome }}) por este link:
+{{ chat_url }}
+
+Guarde este e-mail: é por esse link que você volta para a conversa a qualquer momento.
+
+Com carinho,
+Cigana Padilha

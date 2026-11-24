@@ -25,6 +25,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .avisos import avisar_pagamento
+from .emails import email_pagamento_confirmado, email_pedido_recebido
 from .forms import MensagemForm, SolicitarConsultaForm
 from .models import Atendente, Consulta, Conversa, Mensagem, TipoConsulta
 
@@ -246,6 +247,7 @@ def _mudar_status(consulta, novo_status):
     consulta.status = novo_status
     if mudou and novo_status == 'aprovado':
         avisar_pagamento(consulta)
+        email_pagamento_confirmado(consulta)
 
 
 def _atualizar_pelo_mp(consulta):
@@ -336,6 +338,7 @@ def solicitar(request, slug):
             consulta.save(update_fields=['status'])
             messages.error(request, 'Não foi possível gerar o Pix agora. Tente novamente em instantes.')
             return redirect('consultas:lista')
+        email_pedido_recebido(consulta)
         return redirect(consulta.get_status_url())
 
     return render(request, 'consultas/solicitar.html', {'tipo': tipo, 'form': SolicitarConsultaForm()})

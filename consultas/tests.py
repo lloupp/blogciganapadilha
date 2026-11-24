@@ -772,3 +772,37 @@ class VerificacaoPeriodicaTests(ConsultasTestCase):
             r = self.client.post(reverse('consultas:webhook') + '?type=order&data.id=../payments/1')
         g.assert_not_called()
         self.assertEqual(r.json()['status'], 'ignored')
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+                   EMAIL_HOST_PASSWORD='chave-teste')
+class EmailClienteTests(ConsultasTestCase):
+    def test_pedido_e_confirmacao_mandam_email(self):
+        from django.core import mail
+
+        def criar(url, json, headers, timeout):
+            return _resposta(_order(Consulta.objects.get(referencia=json['external_reference'])))
+        with mock.patch('consultas.views.requests.post', side_effect=criar):
+            self.client.post(reverse('consultas:solicitar', kwargs={'slug': self.tipo.slug}),
+                             {'nome': 'maria souza', 'email': 'maria@example.com', 'whatsapp': '(51) 99999-8888'})
+        consulta = Consulta.objects.get()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['maria@example.com'])
+        self.assertIn('Olá, Maria!', mail.outbox[0].body)
+        self.assertIn(str(consulta.referencia), mail.outbox[0].body)
+
+        cache.clear()
+        with mock.patch('consultas.views.requests.get',
+                        return_value=_resposta(_order(consulta, 'processed', '80.00'), 200)):
+            self.client.get(reverse('consultas:verificar', args=[consulta.referencia]))
+            self.client.get(reverse('consultas:verificar', args=[consulta.referencia]))
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertIn('/chat/', mail.outbox[1].body)
+        self.assertIn('Entrar no chat', mail.outbox[1].alternatives[0][0])
+
+    @override_settings(EMAIL_HOST_PASSWORD='')
+    def test_sem_chave_nao_envia(self):
+        from django.core import mail
+        from consultas.emails import email_pedido_recebido
+        self.assertFalse(email_pedido_recebido(self._criar_consulta()))
+        self.assertEqual(len(mail.outbox), 0)

@@ -1,0 +1,11 @@
+Olá, {{ primeiro_nome }}!
+
+Recebemos seu pedido de consulta: {{ consulta.tipo_consulta.nome }} (R$ {{ consulta.valor }}).
+
+Para pagar com Pix ou acompanhar seu pedido, use este link:
+{{ status_url }}
+
+Assim que o pagamento for confirmado, você recebe outro e-mail com o link do chat da consulta.
+
+Com carinho,
+Cigana Padilha
