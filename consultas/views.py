@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
@@ -150,6 +151,9 @@ ORDER_STATUS_MAP = {
 }
 
 
+ORDER_ID_RE = re.compile(r'^[A-Z0-9]{3,64}$')
+
+
 class ErroMercadoPago(Exception):
     pass
 
@@ -197,6 +201,8 @@ def _criar_pix(consulta):
 
 
 def _buscar_order(order_id):
+    if not ORDER_ID_RE.match(str(order_id or '')):
+        return None
     try:
         resp = requests.get(f'{MP_API}/v1/orders/{order_id}',
                             headers={'Authorization': f'Bearer {settings.MERCADOPAGO_ACCESS_TOKEN}'},
@@ -252,6 +258,23 @@ def _atualizar_pelo_mp(consulta):
     cache.set(chave, 1, VERIFICAR_INTERVALO)
     order = _buscar_order(consulta.mp_order_id)
     return _aplicar_order(consulta, order) if order else consulta
+
+
+def verificar_pix_pendentes(janela=timedelta(days=2)):
+    """Confere no MP todos os Pix ainda pendentes (roda a cada minuto no worker).
+
+    Garante a confirmação e o aviso mesmo se a cliente fechar a página logo
+    depois de pagar, se o webhook falhar ou se o site ficou fora do ar.
+    """
+    pendentes = Consulta.objects.filter(
+        status='pendente', criado_em__gte=timezone.now() - janela,
+    ).exclude(mp_order_id='')
+    aprovadas = 0
+    for consulta in pendentes:
+        order = _buscar_order(consulta.mp_order_id)
+        if order:
+            aprovadas += _aplicar_order(consulta, order).status == 'aprovado'
+    return aprovadas
 
 
 def _buscar_consulta(referencia):

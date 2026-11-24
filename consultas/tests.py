@@ -731,3 +731,31 @@ class AvisoTelegramTests(ConsultasTestCase):
         with mock.patch('consultas.avisos.requests.post') as post:
             self._aprovar()
         post.assert_not_called()
+
+
+class VerificacaoPeriodicaTests(ConsultasTestCase):
+    @override_settings(TELEGRAM_BOT_TOKEN='123:abc', TELEGRAM_CHAT_ID='999')
+    def test_confirma_pix_pago_com_pagina_fechada_e_avisa(self):
+        from consultas.views import verificar_pix_pendentes
+        paga = self._criar_consulta(mp_order_id='ORDPAGO1')
+        aguardando = self._criar_consulta(mp_order_id='ORDABERTO1')
+        sem_pix = self._criar_consulta()
+        respostas = {'ORDPAGO1': _order(paga, 'processed', '80.00', 'ORDPAGO1'),
+                     'ORDABERTO1': _order(aguardando, order_id='ORDABERTO1')}
+
+        def get(url, headers, timeout):
+            return _resposta(respostas[url.rsplit('/', 1)[1]], 200)
+        with mock.patch('consultas.views.requests.get', side_effect=get) as g, \
+                mock.patch('consultas.avisos.requests.post', return_value=mock.Mock(status_code=200)) as aviso:
+            self.assertEqual(verificar_pix_pendentes(), 1)
+        self.assertEqual(g.call_count, 2)
+        self.assertEqual(aviso.call_count, 1)
+        for c, esperado in ((paga, 'aprovado'), (aguardando, 'pendente'), (sem_pix, 'pendente')):
+            c.refresh_from_db()
+            self.assertEqual(c.status, esperado)
+
+    def test_webhook_ignora_id_de_pedido_invalido(self):
+        with mock.patch('consultas.views.requests.get') as g:
+            r = self.client.post(reverse('consultas:webhook') + '?type=order&data.id=../payments/1')
+        g.assert_not_called()
+        self.assertEqual(r.json()['status'], 'ignored')
