@@ -3,6 +3,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
 from django.urls import reverse
+from consultas.models import Depoimento
 from .models import Post, Categoria, Tag
 
 
@@ -77,6 +78,7 @@ def home(request):
         'posts_destaque': posts_destaque,
         'posts_recentes': posts_recentes,
         'categorias': categorias,
+        'depoimentos': Depoimento.objects.aleatorios(),
     }
     return render(request, 'core/home.html', context)
 

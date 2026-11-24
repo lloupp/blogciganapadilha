@@ -1,0 +1,20 @@
+{% comment %}Seção de depoimentos sorteados. Espera `depoimentos` no contexto.{% endcomment %}
+<section class="section depoimentos-section" aria-label="Depoimentos de clientes">
+    <h2 class="section-title">💬 Quem já se consultou</h2>
+    {% if depoimentos %}
+    <div class="depoimentos-grid">
+        {% for dep in depoimentos %}
+        <figure class="depoimento-card">
+            <blockquote class="depoimento-texto">“{{ dep.texto|linebreaksbr }}”</blockquote>
+            <figcaption class="depoimento-autor">
+                <strong>{{ dep.nome }}</strong>{% if dep.cidade %} · {{ dep.cidade }}{% endif %}
+                {% if dep.tipo_consulta %}<span class="depoimento-tipo">{{ dep.tipo_consulta.icone }} {{ dep.tipo_consulta.nome }}</span>{% endif %}
+            </figcaption>
+        </figure>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="section-cta">
+        <a href="{% url 'consultas:depoimento' %}" class="btn btn-secondary">Já se consultou? Deixe seu depoimento →</a>
+    </div>
+</section>

@@ -6,6 +6,7 @@ app_name = 'consultas'
 
 urlpatterns = [
     path('', views.lista, name='lista'),
+    path('depoimento/', views.depoimento, name='depoimento'),
     path('sucesso/', views.sucesso, name='sucesso'),
     path('pendente/', views.pendente, name='pendente'),
     path('erro/', views.erro, name='erro'),

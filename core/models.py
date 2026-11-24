@@ -1,3 +1,6 @@
+import re
+
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -83,11 +86,6 @@ class Post(models.Model):
     data_criacao = models.DateTimeField('Criado em', auto_now_add=True)
     data_atualizacao = models.DateTimeField('Atualizado em', auto_now=True)
     data_publicacao = models.DateTimeField('Publicado em', null=True, blank=True)
-    video_url = models.URLField(
-        'URL do YouTube',
-        blank=True,
-        help_text='Cole a URL completa do YouTube (ex: https://www.youtube.com/watch?v=XXXXX)'
-    )
     tempo_leitura = models.PositiveIntegerField('Tempo de leitura (min)', default=5)
     visualizacoes = models.PositiveIntegerField('Visualizações', default=0)
 
@@ -125,24 +123,6 @@ class Post(models.Model):
         return reverse('core:post_detail', kwargs={'slug': self.slug})
 
     @property
-    def video_id(self):
-        """Extrai o video_id de URLs do YouTube (watch, youtu.be, shorts, embed, live)."""
-        if not self.video_url:
-            return None
-        import re
-        match = re.search(
-            r'(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/)|youtu\.be/)([A-Za-z0-9_-]{11})',
-            self.video_url
-        )
-        return match.group(1) if match else None
-
-    @property
-    def video_embed_url(self):
-        """Retorna a URL de embed do YouTube."""
-        vid = self.video_id
-        return f'https://www.youtube.com/embed/{vid}' if vid else None
-
-    @property
     def esta_agendado(self):
         return self.status == 'publicado' and self.data_publicacao and self.data_publicacao > timezone.now()
 
@@ -153,3 +133,62 @@ class Post(models.Model):
     def incrementar_visualizacoes(self):
         self.visualizacoes += 1
         self.save(update_fields=['visualizacoes'])
+
+YOUTUBE_RE = re.compile(
+    r'(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/)|youtu\.be/)([A-Za-z0-9_-]{11})'
+)
+INSTAGRAM_RE = re.compile(
+    r'instagram\.com/(?:[A-Za-z0-9_.]+/)?(p|reels?|tv)/([A-Za-z0-9_-]+)'
+)
+
+
+def identificar_video(url):
+    """Devolve (plataforma, id, tipo) para uma URL do YouTube ou Instagram, ou None."""
+    url = (url or '').strip()
+    m = YOUTUBE_RE.search(url)
+    if m:
+        return ('youtube', m.group(1), None)
+    m = INSTAGRAM_RE.search(url)
+    if m:
+        tipo = 'p' if m.group(1) == 'p' else 'reel' if m.group(1).startswith('reel') else 'tv'
+        return ('instagram', m.group(2), tipo)
+    return None
+
+
+class Video(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='videos', verbose_name='Post')
+    url = models.URLField(
+        'Link do vídeo',
+        max_length=500,
+        help_text='Link do YouTube (vídeo, Shorts ou live) ou do Instagram (Reel ou post). '
+                  'No Instagram, a conta precisa ser pública.'
+    )
+    legenda = models.CharField('Legenda (opcional)', max_length=200, blank=True)
+    ordem = models.PositiveIntegerField('Ordem', default=0)
+
+    class Meta:
+        verbose_name = 'Vídeo'
+        verbose_name_plural = 'Vídeos'
+        ordering = ['ordem', 'id']
+
+    def __str__(self):
+        return self.legenda or self.url
+
+    def clean(self):
+        if self.url and not identificar_video(self.url):
+            raise ValidationError({'url': 'Link não reconhecido. Use um link do YouTube ou do Instagram.'})
+
+    @property
+    def plataforma(self):
+        info = identificar_video(self.url)
+        return info[0] if info else None
+
+    @property
+    def embed_url(self):
+        info = identificar_video(self.url)
+        if not info:
+            return None
+        plataforma, vid, tipo = info
+        if plataforma == 'youtube':
+            return f'https://www.youtube.com/embed/{vid}'
+        return f'https://www.instagram.com/{tipo}/{vid}/embed/'

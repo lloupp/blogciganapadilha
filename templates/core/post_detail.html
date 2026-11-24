@@ -43,18 +43,22 @@
     </figure>
     {% endif %}
 
-    {% if post.video_embed_url %}
-    <div class="post-video">
-        <iframe
-            src="{{ post.video_embed_url }}"
-            title="{{ post.titulo }}"
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen
-            loading="lazy">
-        </iframe>
-    </div>
-    {% endif %}
+    {% for video in post.videos.all %}{% if video.embed_url %}
+    <figure class="post-video-wrap">
+        <div class="post-video post-video--{{ video.plataforma }}">
+            <iframe
+                src="{{ video.embed_url }}"
+                title="{{ video.legenda|default:post.titulo }}"
+                frameborder="0"
+                {% if video.plataforma == 'instagram' %}scrolling="no"{% endif %}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                loading="lazy">
+            </iframe>
+        </div>
+        {% if video.legenda %}<figcaption class="post-video-caption">{{ video.legenda }}</figcaption>{% endif %}
+    </figure>
+    {% endif %}{% endfor %}
 
     <div class="post-content">
         {{ post.conteudo|linebreaksbr }}

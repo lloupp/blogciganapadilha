@@ -24,10 +24,10 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from .avisos import avisar_pagamento
+from .avisos import avisar_depoimento, avisar_pagamento
 from .emails import email_pagamento_confirmado, email_pedido_recebido
-from .forms import MensagemForm, SolicitarConsultaForm
-from .models import Atendente, Consulta, Conversa, Mensagem, TipoConsulta
+from .forms import DepoimentoForm, MensagemForm, SolicitarConsultaForm
+from .models import Atendente, Consulta, Conversa, Depoimento, Mensagem, TipoConsulta
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,10 @@ def _throttle_excedido(request, chave, limite=THROTTLE_LIMITE, janela=THROTTLE_J
     except ValueError:
         cache.set(cache_key, 1, janela)
     return False
+
+
+def _depoimento_url(consulta):
+    return f"{reverse('consultas:depoimento')}?ref={consulta.referencia}"
 
 
 def _whatsapp_url(consulta):
@@ -298,6 +302,7 @@ def lista(request):
     tipos = TipoConsulta.objects.filter(ativo=True)
     context = {
         'tipos': tipos,
+        'depoimentos': Depoimento.objects.aleatorios(),
         'mp_configurado': bool(settings.MERCADOPAGO_ACCESS_TOKEN),
     }
     return render(request, 'consultas/lista.html', context)
@@ -342,6 +347,44 @@ def solicitar(request, slug):
         return redirect(consulta.get_status_url())
 
     return render(request, 'consultas/solicitar.html', {'tipo': tipo, 'form': SolicitarConsultaForm()})
+
+
+def depoimento(request):
+    """Formulário público de depoimento. Só aparece no site depois de aprovado.
+
+    Com ?ref=<referência> de uma consulta paga, o depoimento fica marcado como
+    de cliente confirmada e o formulário já vem preenchido.
+    """
+    consulta = _buscar_consulta(request.GET.get('ref') or request.POST.get('ref'))
+    if consulta and consulta.status != 'aprovado':
+        consulta = None
+
+    if request.method == 'POST':
+        form = DepoimentoForm(request.POST)
+        if form.data.get('site'):
+            # Robô preencheu o campo escondido: finge que deu certo.
+            return render(request, 'consultas/depoimento_obrigado.html')
+        if form.is_valid() and _throttle_excedido(request, 'depoimento', limite=3, janela=3600):
+            messages.error(request, 'Recebemos vários depoimentos seguidos daqui. Tente de novo mais tarde.')
+        elif form.is_valid():
+            dados = form.cleaned_data
+            dep = Depoimento.objects.create(
+                nome=dados['nome'],
+                cidade=dados['cidade'],
+                texto=dados['texto'],
+                tipo_consulta=dados['tipo_consulta'] or (consulta.tipo_consulta if consulta else None),
+                consulta=consulta,
+            )
+            avisar_depoimento(dep)
+            return render(request, 'consultas/depoimento_obrigado.html')
+    else:
+        inicial = {}
+        if consulta:
+            inicial = {'nome': (consulta.nome_cliente.split() or [''])[0].title(),
+                       'tipo_consulta': consulta.tipo_consulta_id}
+        form = DepoimentoForm(initial=inicial)
+
+    return render(request, 'consultas/depoimento.html', {'form': form, 'consulta': consulta})
 
 
 def sucesso(request):
@@ -394,6 +437,7 @@ def status(request, referencia):
     context = {
         'consulta': consulta,
         'whatsapp_url': _whatsapp_url(consulta) if aprovado else '',
+        'depoimento_url': _depoimento_url(consulta) if aprovado else '',
         'auto_refresh': auto_refresh,
         'pix': pix,
         'pix_vencido': pix and consulta.pix_expira_em and consulta.pix_expira_em < timezone.now(),
@@ -628,6 +672,7 @@ def chat(request, referencia):
         'conversa': conversa,
         'atendente': conversa.atendente,
         'whatsapp_url': _whatsapp_url(consulta),
+        'depoimento_url': _depoimento_url(consulta),
     }
     return _noindex(render(request, 'consultas/chat.html', context))
 

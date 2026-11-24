@@ -25,6 +25,9 @@
 {% if chat_url %}
     {% include 'consultas/_chat_cta.html' %}
 {% endif %}
+{% if depoimento_url %}
+<p class="card-text" style="text-align: center;">Depois da consulta, se quiser, <a href="{{ depoimento_url }}">deixe seu depoimento</a>. 💬</p>
+{% endif %}
 {% elif pix and pix_vencido %}
 <div class="page-header">
     <h1 class="page-title"><span class="emoji">⌛</span> Este Pix venceu</h1>

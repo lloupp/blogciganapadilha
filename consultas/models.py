@@ -292,3 +292,41 @@ class Mensagem(models.Model):
 
     def __str__(self):
         return f'[{self.get_autor_display()}] {self.texto[:50]}'
+
+
+# ============================================================
+# Depoimentos
+# ============================================================
+
+class DepoimentoQuerySet(models.QuerySet):
+    def aleatorios(self, quantidade=3):
+        """Sorteia `quantidade` depoimentos aprovados (muda a cada visita)."""
+        return self.filter(aprovado=True).select_related('tipo_consulta').order_by('?')[:quantidade]
+
+
+class Depoimento(models.Model):
+    nome = models.CharField('Nome exibido', max_length=60,
+                            help_text='Como aparece no site (ex.: "Maria S." ou só "Maria").')
+    cidade = models.CharField('Cidade', max_length=80, blank=True)
+    texto = models.TextField('Depoimento', max_length=800)
+    tipo_consulta = models.ForeignKey(
+        TipoConsulta, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='depoimentos', verbose_name='Consulta realizada',
+    )
+    consulta = models.ForeignKey(
+        Consulta, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='depoimentos', verbose_name='Consulta paga (cliente confirmada)',
+        help_text='Preenchido sozinho quando a cliente usa o link enviado depois da consulta.',
+    )
+    aprovado = models.BooleanField('Aprovado (aparece no site)', default=False)
+    criado_em = models.DateTimeField('Recebido em', auto_now_add=True)
+
+    objects = DepoimentoQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = 'Depoimento'
+        verbose_name_plural = 'Depoimentos'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'{self.nome}: {self.texto[:50]}'

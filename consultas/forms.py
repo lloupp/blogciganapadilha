@@ -43,3 +43,44 @@ class MensagemForm(forms.Form):
             'max_length': 'A mensagem pode ter no máximo %(limit_value)d caracteres.',
         },
     )
+
+
+class DepoimentoForm(forms.Form):
+    nome = forms.CharField(
+        label='Seu nome (como quer que apareça)',
+        max_length=60,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Ex.: Maria S.'}),
+    )
+    cidade = forms.CharField(
+        label='Cidade (opcional)',
+        max_length=80,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-input'}),
+    )
+    tipo_consulta = forms.ModelChoiceField(
+        label='Qual consulta você fez? (opcional)',
+        queryset=None,
+        required=False,
+        empty_label='—',
+        widget=forms.Select(attrs={'class': 'form-input'}),
+    )
+    texto = forms.CharField(
+        label='Seu depoimento',
+        min_length=20,
+        max_length=800,
+        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 5}),
+        error_messages={'min_length': 'Escreva um pouquinho mais (pelo menos %(limit_value)d letras).'},
+    )
+    autorizo = forms.BooleanField(
+        label='Autorizo a publicação deste depoimento no site, com o nome que informei.',
+        error_messages={'required': 'Precisamos da sua autorização para publicar.'},
+    )
+    # Armadilha para robôs: campo escondido que pessoas não preenchem.
+    site = forms.CharField(required=False, widget=forms.TextInput(attrs={
+        'tabindex': '-1', 'autocomplete': 'off',
+    }))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import TipoConsulta
+        self.fields['tipo_consulta'].queryset = TipoConsulta.objects.filter(ativo=True)

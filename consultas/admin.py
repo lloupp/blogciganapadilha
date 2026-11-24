@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.utils.html import format_html
 
-from .models import Atendente, Consulta, Conversa, Mensagem, TipoConsulta
+from .models import Atendente, Consulta, Conversa, Depoimento, Mensagem, TipoConsulta
 
 
 @admin.register(TipoConsulta)
@@ -142,3 +142,32 @@ class ConversaAdmin(admin.ModelAdmin):
     @admin.action(description='Encerrar')
     def encerrar(self, request, queryset):
         self._aplicar(request, queryset, 'encerrar', 'Encerradas')
+
+
+@admin.register(Depoimento)
+class DepoimentoAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'trecho', 'tipo_consulta', 'cliente_confirmada', 'aprovado', 'criado_em']
+    list_editable = ['aprovado']
+    list_filter = ['aprovado', 'tipo_consulta']
+    search_fields = ['nome', 'cidade', 'texto']
+    fields = ['nome', 'cidade', 'texto', 'tipo_consulta', 'consulta', 'aprovado', 'criado_em']
+    readonly_fields = ['consulta', 'criado_em']
+    actions = ['aprovar', 'desaprovar']
+
+    @admin.display(description='Depoimento')
+    def trecho(self, obj):
+        return obj.texto[:80] + ('…' if len(obj.texto) > 80 else '')
+
+    @admin.display(description='Cliente confirmada', boolean=True)
+    def cliente_confirmada(self, obj):
+        return obj.consulta_id is not None
+
+    @admin.action(description='Aprovar (mostrar no site)')
+    def aprovar(self, request, queryset):
+        n = queryset.update(aprovado=True)
+        self.message_user(request, f'{n} depoimento(s) aprovado(s).', messages.SUCCESS)
+
+    @admin.action(description='Tirar do site')
+    def desaprovar(self, request, queryset):
+        n = queryset.update(aprovado=False)
+        self.message_user(request, f'{n} depoimento(s) retirado(s) do site.', messages.SUCCESS)

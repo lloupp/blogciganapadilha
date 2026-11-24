@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}💬 Deixe seu depoimento - Blog Cigana Padilha{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><span class="emoji">💬</span> Deixe seu depoimento</h1>
+    <p class="page-subtitle">Conte como foi sua consulta. Seu depoimento aparece no site depois de revisado.</p>
+</div>
+
+<form method="post" class="consulta-form">
+    {% csrf_token %}
+    {% if consulta %}<input type="hidden" name="ref" value="{{ consulta.referencia }}">{% endif %}
+    <div class="campo-escondido" aria-hidden="true">
+        <label for="{{ form.site.id_for_label }}">Não preencha</label>{{ form.site }}
+    </div>
+    {% for campo in form %}{% if campo.name != 'site' %}
+    <div class="form-group{% if campo.name == 'autorizo' %} form-check{% endif %}">
+        {% if campo.name == 'autorizo' %}
+            <label>{{ campo }} {{ campo.label }}</label>
+        {% else %}
+            <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>
+            {{ campo }}
+        {% endif %}
+        {{ campo.errors }}
+    </div>
+    {% endif %}{% endfor %}
+    <button type="submit" class="btn btn-primary">Enviar depoimento</button>
+</form>
+{% endblock %}

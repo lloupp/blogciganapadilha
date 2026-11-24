@@ -51,3 +51,16 @@ def avisar_pagamento(consulta):
         f'(já vai com a mensagem pronta): https://wa.me/{consulta.whatsapp_cliente}?text={quote(convite)}'
     )
     return enviar_telegram(texto)
+
+
+def avisar_depoimento(depoimento):
+    url = settings.SITE_URL + reverse('admin:consultas_depoimento_change', args=[depoimento.pk])
+    confirmada = '✅ cliente com consulta paga' if depoimento.consulta_id else '⚠️ enviado sem link de consulta'
+    texto = (
+        '💬 Novo depoimento esperando aprovação\n\n'
+        f'👤 {depoimento.nome}' + (f' ({depoimento.cidade})' if depoimento.cidade else '') + '\n'
+        f'{confirmada}\n\n'
+        f'"{depoimento.texto[:500]}"\n\n'
+        f'Aprovar ou recusar: {url}'
+    )
+    return enviar_telegram(texto)

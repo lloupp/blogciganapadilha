@@ -56,6 +56,7 @@
 
     <div class="chat-fim" data-chat="fim" hidden>
         <p>Esta consulta foi encerrada. Obrigada pela confiança! 🌙</p>
+        {% if depoimento_url %}<p>Gostou? <a href="{{ depoimento_url }}">Deixe seu depoimento</a>, ele ajuda muito outras pessoas.</p>{% endif %}
         <a href="{% url 'consultas:lista' %}" class="btn btn-primary">Contratar nova consulta</a>
     </div>
 </section>

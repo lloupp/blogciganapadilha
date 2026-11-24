@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Post, Categoria, Tag
+from .models import Post, Categoria, Tag, Video
 
 
 @admin.register(Categoria)
@@ -18,8 +18,17 @@ class TagAdmin(admin.ModelAdmin):
     search_fields = ['nome']
 
 
+class VideoInline(admin.TabularInline):
+    model = Video
+    extra = 1
+    fields = ['url', 'legenda', 'ordem']
+    verbose_name = 'Vídeo (YouTube ou Instagram)'
+    verbose_name_plural = 'Vídeos (YouTube ou Instagram) — aparecem entre a foto e o texto, na ordem indicada'
+
+
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
+    inlines = [VideoInline]
     list_display = ['titulo', 'categoria', 'status', 'situacao', 'destaque', 'data_publicacao', 'visualizacoes']
     list_filter = ['status', 'categoria', 'tags', 'destaque', 'data_publicacao']
     list_editable = ['status', 'destaque']
@@ -32,7 +41,7 @@ class PostAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Conteúdo Principal', {
-            'fields': ('titulo', 'slug', 'subtitulo', 'conteudo', 'imagem_destaque', 'video_url')
+            'fields': ('titulo', 'slug', 'subtitulo', 'conteudo', 'imagem_destaque')
         }),
         ('Organização', {
             'fields': ('categoria', 'tags')
