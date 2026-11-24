@@ -517,7 +517,7 @@ class PainelTests(TestCase):
         self.client.force_login(self.staff)
 
     def _url(self, nome):
-        return reverse(f'consultas:{nome}', args=[self.conversa.pk])
+        return reverse(f'painel:{nome}', args=[self.conversa.pk])
 
     def _post(self, nome, dados=None):
         return self.client.post(self._url(nome), data=json.dumps(dados or {}), content_type='application/json')
@@ -528,7 +528,7 @@ class PainelTests(TestCase):
         comum = Client()
         comum.force_login(self.comum)
         for client in (anonimo, comum):
-            for url in (reverse('consultas:painel'), self._url('painel_conversa'), self._url('painel_mensagens')):
+            for url in (reverse('painel:painel'), self._url('painel_conversa'), self._url('painel_mensagens')):
                 resp = client.get(url)
                 self.assertEqual(resp.status_code, 302, url)
                 self.assertIn('/admin/login/', resp['Location'])
@@ -539,7 +539,7 @@ class PainelTests(TestCase):
 
     def test_staff_ve_lista_e_conversa(self):
         self.conversa.mensagens.create(autor=Mensagem.AUTOR_CLIENTE, texto='oi')
-        resp = self.client.get(reverse('consultas:painel'))
+        resp = self.client.get(reverse('painel:painel'))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Ana')
         self.assertContains(resp, 'painel-badge')
@@ -603,7 +603,7 @@ class PainelTests(TestCase):
         Conversa.objects.filter(pk=self.conversa.pk).update(
             iniciada_em=timezone.now() - timedelta(minutes=40),
         )
-        self.client.get(reverse('consultas:painel'))
+        self.client.get(reverse('painel:painel'))
         self.conversa.refresh_from_db()
         self.assertEqual(self.conversa.status, 'expirada')
 
@@ -671,3 +671,23 @@ class ImagemTipoConsultaTests(TestCase):
         self.assertContains(r, '/media/consultas/amor.jpg')
         self.assertContains(r, '🔮')
         self.assertNotContains(r, '💘')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False,
+                   STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
+class PainelDentroDoAdminTests(TestCase):
+    def test_endereco_antigo_nao_existe_mais(self):
+        self.assertEqual(self.client.get('/consultas/painel/').status_code, 404)
+
+    def test_painel_exige_login_da_equipe(self):
+        r = self.client.get('/admin/atendimento/')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/admin/login/', r['Location'])
+
+    def test_atalho_curto(self):
+        self.assertRedirects(self.client.get('/atendimento/'), '/admin/atendimento/', fetch_redirect_response=False)
+
+    def test_link_no_topo_do_admin(self):
+        from django.contrib.auth import get_user_model
+        self.client.force_login(get_user_model().objects.create_superuser('a', 'a@example.com', 'x'))
+        self.assertContains(self.client.get('/admin/'), 'href="/admin/atendimento/"')

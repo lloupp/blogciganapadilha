@@ -8,14 +8,14 @@
 {% endblock %}
 
 {% block content %}
-<p class="painel-voltar"><a href="{% url 'consultas:painel' %}">← Todos os atendimentos</a></p>
+<p class="painel-voltar"><a href="{% url 'painel:painel' %}">← Todos os atendimentos</a></p>
 
 <div class="painel-conversa">
     <section class="chat"
              id="chat"
              data-papel="atendente"
-             data-url-mensagens="{% url 'consultas:painel_mensagens' conversa.pk %}"
-             data-url-enviar="{% url 'consultas:painel_enviar' conversa.pk %}"
+             data-url-mensagens="{% url 'painel:painel_mensagens' conversa.pk %}"
+             data-url-enviar="{% url 'painel:painel_enviar' conversa.pk %}"
              data-csrf="{{ csrf_token }}"
              data-intervalo="4000"
              aria-label="Conversa com {{ consulta.nome_cliente }}">
@@ -48,9 +48,9 @@
     </section>
 
     <aside class="painel-lateral" id="painel-acoes"
-           data-url-iniciar="{% url 'consultas:painel_iniciar' conversa.pk %}"
-           data-url-estender="{% url 'consultas:painel_estender' conversa.pk %}"
-           data-url-encerrar="{% url 'consultas:painel_encerrar' conversa.pk %}">
+           data-url-iniciar="{% url 'painel:painel_iniciar' conversa.pk %}"
+           data-url-estender="{% url 'painel:painel_estender' conversa.pk %}"
+           data-url-encerrar="{% url 'painel:painel_encerrar' conversa.pk %}">
 
         <div class="painel-card">
             <h2 class="painel-card-titulo">Atendimento</h2>

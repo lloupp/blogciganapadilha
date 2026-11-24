@@ -3,6 +3,7 @@ URL configuration for blog_mae project.
 """
 from django.contrib import admin
 from django.urls import path, include, re_path
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve as serve_media
@@ -12,6 +13,8 @@ admin.site.site_title = settings.ADMIN_SITE_TITLE
 admin.site.index_title = settings.ADMIN_INDEX_TITLE
 
 urlpatterns = [
+    path('atendimento/', RedirectView.as_view(url='/admin/atendimento/', permanent=False)),
+    path('admin/atendimento/', include('consultas.urls_painel', namespace='painel')),
     path('admin/', admin.site.urls),
     path('consultas/', include('consultas.urls', namespace='consultas')),
     path('', include('core.urls', namespace='core')),

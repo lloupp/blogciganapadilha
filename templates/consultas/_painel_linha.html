@@ -1,4 +1,4 @@
-<a class="painel-linha is-{{ c.status }}" href="{% url 'consultas:painel_conversa' c.pk %}">
+<a class="painel-linha is-{{ c.status }}" href="{% url 'painel:painel_conversa' c.pk %}">
     <span class="painel-linha-quem">
         <strong>{{ c.consulta.nome_cliente }}</strong>
         <span class="painel-linha-tipo">{{ c.consulta.tipo_consulta.icone }} {{ c.consulta.tipo_consulta.nome }}</span>
