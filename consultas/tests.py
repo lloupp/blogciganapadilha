@@ -36,7 +36,7 @@ def _payment(consulta, status='approved', valor=None, payment_id='pay-1'):
     MERCADOPAGO_ACCESS_TOKEN='TEST-token',
     WHATSAPP_NUMERO='5551999999999',
     STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage',
-    CONSULTAS_ABERTAS=True,
+    CONSULTAS_ABERTAS=True, TELEGRAM_BOT_TOKEN='', TELEGRAM_CHAT_ID='',
 )
 class ConsultasTestCase(TestCase):
     def setUp(self):
@@ -691,3 +691,43 @@ class PainelDentroDoAdminTests(TestCase):
         from django.contrib.auth import get_user_model
         self.client.force_login(get_user_model().objects.create_superuser('a', 'a@example.com', 'x'))
         self.assertContains(self.client.get('/admin/'), 'href="/admin/atendimento/"')
+
+
+class AvisoTelegramTests(ConsultasTestCase):
+    def setUp(self):
+        super().setUp()
+        self.consulta = self._criar_consulta(mp_order_id='ORD1')
+
+    def _aprovar(self):
+        cache.clear()
+        with mock.patch('consultas.views.requests.get',
+                        return_value=_resposta(_order(self.consulta, 'processed', '80.00'), 200)):
+            self.client.get(reverse('consultas:verificar', args=[self.consulta.referencia]))
+
+    @override_settings(TELEGRAM_BOT_TOKEN='123:abc', TELEGRAM_CHAT_ID='999')
+    def test_avisa_uma_unica_vez_quando_aprova(self):
+        with mock.patch('consultas.avisos.requests.post', return_value=mock.Mock(status_code=200)) as post:
+            self._aprovar()
+            self._aprovar()
+            with mock.patch('consultas.views.requests.get',
+                            return_value=_resposta(_order(self.consulta, 'processed', '80.00'), 200)):
+                self.client.post(reverse('consultas:webhook') + '?type=order&data.id=ORD1')
+        self.assertEqual(post.call_count, 1)
+        enviado = post.call_args.kwargs['json']
+        self.assertEqual(enviado['chat_id'], '999')
+        self.assertIn('Nova consulta paga', enviado['text'])
+        self.assertIn('R$ 80,00', enviado['text'])
+        self.assertIn('/atendimento/', enviado['text'])
+
+    @override_settings(TELEGRAM_BOT_TOKEN='123:abc', TELEGRAM_CHAT_ID='999')
+    def test_falha_do_telegram_nao_impede_aprovacao(self):
+        import requests as req
+        with mock.patch('consultas.avisos.requests.post', side_effect=req.ConnectionError('fora')):
+            self._aprovar()
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.status, 'aprovado')
+
+    def test_sem_configuracao_nao_envia(self):
+        with mock.patch('consultas.avisos.requests.post') as post:
+            self._aprovar()
+        post.assert_not_called()

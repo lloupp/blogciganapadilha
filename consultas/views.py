@@ -23,6 +23,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from .avisos import avisar_pagamento
 from .forms import MensagemForm, SolicitarConsultaForm
 from .models import Atendente, Consulta, Conversa, Mensagem, TipoConsulta
 
@@ -117,14 +118,14 @@ def _aplicar_pagamento(consulta, payment):
         return consulta
 
     novo_status = STATUS_MAP.get(payment.get('status'))
-    if novo_status and consulta.pode_transicionar(novo_status):
-        consulta.status = novo_status
-    elif novo_status:
+    if novo_status and novo_status != consulta.status and consulta.pode_transicionar(novo_status):
+        _mudar_status(consulta, novo_status)
+    elif novo_status and novo_status != consulta.status:
         logger.info(
             'Transição de status bloqueada para a consulta %s: %s → %s',
             consulta.pk, consulta.status, novo_status,
         )
-    consulta.save(update_fields=['status', 'mp_payment_id', 'atualizado_em'])
+    consulta.save(update_fields=['mp_payment_id', 'atualizado_em'])
     return consulta
 
 
@@ -224,9 +225,21 @@ def _aplicar_order(consulta, order):
             consulta.save(update_fields=['pagamento_divergente', 'atualizado_em'])
             return consulta
     if novo_status and novo_status != consulta.status and consulta.pode_transicionar(novo_status):
-        consulta.status = novo_status
-        consulta.save(update_fields=['status', 'atualizado_em'])
+        _mudar_status(consulta, novo_status)
     return consulta
+
+
+def _mudar_status(consulta, novo_status):
+    """Grava o novo status; ao virar 'aprovado', avisa a dona uma única vez.
+
+    O update condicional garante que, se a página e o webhook confirmarem o
+    mesmo pagamento ao mesmo tempo, só um deles dispara o aviso.
+    """
+    mudou = Consulta.objects.filter(pk=consulta.pk).exclude(status=novo_status).update(
+        status=novo_status, atualizado_em=timezone.now())
+    consulta.status = novo_status
+    if mudou and novo_status == 'aprovado':
+        avisar_pagamento(consulta)
 
 
 def _atualizar_pelo_mp(consulta):

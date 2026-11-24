@@ -147,6 +147,13 @@ REDATOR_MAX_CARACTERES = config('REDATOR_MAX_CARACTERES', default=1500, cast=int
 REDATOR_FORA_DO_ASSUNTO_MAX = config('REDATOR_FORA_DO_ASSUNTO_MAX', default=2, cast=int)
 
 # ============================================================
+# Aviso no Telegram quando uma consulta é paga (vazio = sem aviso)
+# ============================================================
+TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_CHAT_ID = config('TELEGRAM_CHAT_ID', default='')  # vários: separados por vírgula
+SITE_URL = config('SITE_URL', default='https://blogciganapadilha.com.br')
+
+# ============================================================
 # WhatsApp (contato liberado após o pagamento da consulta)
 # ============================================================
 # Formato internacional só com dígitos, ex.: 5551999999999
