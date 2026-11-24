@@ -30,7 +30,7 @@ def sitemap_xml(request):
 
     # Páginas estáticas
     static_pages = [
-        ('core:home', '0.8', 'daily'),
+        ('core:home', '1.0', 'daily'),
         ('core:post_list', '0.6', 'weekly'),
     ]
     for name, priority, freq in static_pages:
@@ -41,6 +41,17 @@ def sitemap_xml(request):
         changefreq.text = freq
         prio = ET.SubElement(url, 'priority')
         prio.text = priority
+
+    # Consultas online (só quando abertas ao público)
+    if settings.CONSULTAS_ABERTAS:
+        consultas_urls = [reverse('consultas:lista')] + [
+            tipo.get_absolute_url() for tipo in TipoConsulta.objects.filter(ativo=True)
+        ]
+        for caminho in consultas_urls:
+            url = ET.SubElement(urlset, 'url')
+            ET.SubElement(url, 'loc').text = request.build_absolute_uri(caminho)
+            ET.SubElement(url, 'changefreq').text = 'weekly'
+            ET.SubElement(url, 'priority').text = '0.9'
 
     # Posts publicados
     for post in Post.objects.publicados():
