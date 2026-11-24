@@ -308,3 +308,139 @@ class AdminTests(TestCase):
         r = self.client.get(self.url('chat'))
         self.assertEqual(r.status_code, 302)
         self.assertIn('/admin/login/', r['Location'])
+
+
+# ---------------------------------------------------------------------------
+# Imagens e edição de posts publicados
+# ---------------------------------------------------------------------------
+import io
+import shutil
+import tempfile
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
+
+MEDIA_TESTE = tempfile.mkdtemp(prefix='redator-media-')
+
+
+def _foto(nome='foto.jpg', formato='JPEG'):
+    buf = io.BytesIO()
+    Image.new('RGB', (40, 30), (120, 60, 200)).save(buf, formato)
+    return SimpleUploadedFile(nome, buf.getvalue(), content_type='image/jpeg')
+
+
+@override_settings(**CONFIG, MEDIA_ROOT=MEDIA_TESTE)
+class ImagemEEdicaoTests(TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(MEDIA_TESTE, ignore_errors=True)
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser('dona', 'dona@example.com', 'x')
+        self.client.force_login(self.user)
+
+    def _responder(self, resposta):
+        pk = agente.proxima_pendente()
+        with mock.patch.object(agente, 'chamar_opencode', return_value=(resposta, 1, 1)):
+            agente.responder(pk)
+
+    def test_imagem_sozinha_nao_chama_o_modelo_nem_gasta_cota(self):
+        conversa = Conversa.objects.create()
+        url = reverse('admin:redator_conversa_enviar', args=[conversa.pk])
+        self.client.post(url, {'texto': '', 'imagem': _foto()})
+        self.assertIsNone(agente.proxima_pendente())
+        self.assertEqual(agente.restantes_na_conversa(conversa), 3)
+        self.assertTrue(conversa.mensagens.filter(autor=Mensagem.DONA).exclude(imagem='').exists())
+
+    def test_imagem_antes_do_rascunho_vira_destaque_quando_ele_nasce(self):
+        conversa = Conversa.objects.create()
+        agente.enviar(conversa, '', imagem=_foto())
+        agente.enviar(conversa, 'Post sobre O Sol')
+        self._responder(RESPOSTA_COM_POST)
+        conversa.refresh_from_db()
+        self.assertTrue(conversa.post.imagem_destaque.name.startswith('redator/'))
+
+    def test_imagem_com_rascunho_ja_existente(self):
+        conversa = Conversa.objects.create()
+        agente.enviar(conversa, 'Post sobre O Sol')
+        self._responder(RESPOSTA_COM_POST)
+        conversa.refresh_from_db()
+        agente.enviar(conversa, 'Use esta foto', imagem=_foto())
+        conversa.post.refresh_from_db()
+        self.assertTrue(conversa.post.imagem_destaque)
+        self.assertIn('imagem, que já virou', agente.montar_prompt(conversa))
+
+    def test_arquivo_que_nao_e_imagem_e_recusado(self):
+        conversa = Conversa.objects.create()
+        url = reverse('admin:redator_conversa_enviar', args=[conversa.pk])
+        falso = SimpleUploadedFile('x.jpg', b'nao sou imagem', content_type='image/jpeg')
+        r = self.client.post(url, {'texto': 'oi', 'imagem': falso}, follow=True)
+        self.assertFalse(Mensagem.objects.exists())
+        self.assertTrue(any('imagem' in str(m).lower() for m in r.context['messages']))
+
+    def _publicado(self):
+        return Post.objects.create(titulo='A Lua no Tarô', subtitulo='Antigo', conteudo='Texto antigo',
+                                   status='publicado')
+
+    def test_editar_publicado_nao_muda_o_post_antes_de_aprovar(self):
+        post = self._publicado()
+        r = self.client.get(reverse('admin:redator_conversa_editar_post', args=[post.pk]))
+        conversa = Conversa.objects.get(post=post)
+        self.assertRedirects(r, reverse('admin:redator_conversa_chat', args=[conversa.pk]))
+        agente.enviar(conversa, 'Mude o título')
+        self._responder(RESPOSTA_COM_POST)
+        agente.enviar(conversa, '', imagem=_foto())
+        post.refresh_from_db()
+        conversa.refresh_from_db()
+        self.assertEqual(post.titulo, 'A Lua no Tarô')
+        self.assertFalse(post.imagem_destaque)
+        self.assertEqual(Post.objects.count(), 1)
+        self.assertEqual(conversa.proposta['titulo'], 'O Sol no Tarô')
+        self.assertTrue(conversa.proposta['imagem'])
+        self.assertIn('JÁ PUBLICADO', agente.montar_prompt(conversa))
+        pagina = self.client.get(reverse('admin:redator_conversa_chat', args=[conversa.pk]))
+        self.assertContains(pagina, 'Aprovar alterações')
+        self.assertNotContains(pagina, 'Aprovar e publicar agora')
+
+    def test_aprovar_alteracoes_atualiza_post_no_ar(self):
+        post = self._publicado()
+        data = post.data_publicacao
+        conversa = agente.iniciar_edicao(post)
+        agente.enviar(conversa, 'Mude o título', imagem=_foto())
+        self._responder(RESPOSTA_COM_POST)
+        self.client.post(reverse('admin:redator_conversa_aprovar_alteracoes', args=[conversa.pk]))
+        post.refresh_from_db()
+        conversa.refresh_from_db()
+        self.assertEqual(post.titulo, 'O Sol no Tarô')
+        self.assertEqual(post.status, 'publicado')
+        self.assertEqual(post.data_publicacao, data)
+        self.assertTrue(post.imagem_destaque)
+        self.assertIsNone(conversa.proposta)
+        self.assertTrue(conversa.encerrada)
+
+    def test_descartar_alteracoes(self):
+        post = self._publicado()
+        conversa = agente.iniciar_edicao(post)
+        agente.enviar(conversa, 'Mude o título')
+        self._responder(RESPOSTA_COM_POST)
+        self.client.post(reverse('admin:redator_conversa_descartar_alteracoes', args=[conversa.pk]))
+        post.refresh_from_db()
+        conversa.refresh_from_db()
+        self.assertEqual(post.titulo, 'A Lua no Tarô')
+        self.assertIsNone(conversa.proposta)
+        self.assertFalse(conversa.encerrada)
+
+    def test_editar_rascunho_existente_altera_direto(self):
+        post = Post.objects.create(titulo='Rascunho velho', conteudo='x', status='rascunho')
+        conversa = agente.iniciar_edicao(post)
+        agente.enviar(conversa, 'Reescreva')
+        self._responder(RESPOSTA_COM_POST)
+        post.refresh_from_db()
+        self.assertEqual(post.titulo, 'O Sol no Tarô')
+        self.assertEqual(post.status, 'rascunho')
+
+    def test_botao_editar_com_o_agente_no_post(self):
+        post = self._publicado()
+        r = self.client.get(reverse('admin:core_post_change', args=[post.pk]))
+        self.assertContains(r, reverse('admin:redator_conversa_editar_post', args=[post.pk]))

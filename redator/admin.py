@@ -1,7 +1,9 @@
 from datetime import datetime
 
+from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
+from django.core.files.storage import default_storage
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
@@ -9,7 +11,23 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from . import agente
+from core.models import Post
+
 from .models import Conversa, Memoria, Mensagem
+
+MAX_IMAGEM_MB = 8
+
+
+class ImagemForm(forms.Form):
+    imagem = forms.ImageField(required=False)
+
+    def clean_imagem(self):
+        imagem = self.cleaned_data.get('imagem')
+        if imagem and imagem.size > MAX_IMAGEM_MB * 1024 * 1024:
+            raise forms.ValidationError(f'Imagem grande demais (máximo {MAX_IMAGEM_MB} MB).')
+        if imagem and imagem.image.format not in ('JPEG', 'PNG', 'WEBP', 'GIF'):
+            raise forms.ValidationError('Use uma imagem JPG, PNG ou WEBP.')
+        return imagem
 
 
 @admin.register(Memoria)
@@ -74,6 +92,11 @@ class ConversaAdmin(admin.ModelAdmin):
             path('<int:pk>/estado/', v(self.estado_view), name='redator_conversa_estado'),
             path('<int:pk>/publicar/', v(self.publicar_view), name='redator_conversa_publicar'),
             path('<int:pk>/agendar/', v(self.agendar_view), name='redator_conversa_agendar'),
+            path('<int:pk>/aprovar-alteracoes/', v(self.aprovar_alteracoes_view),
+                 name='redator_conversa_aprovar_alteracoes'),
+            path('<int:pk>/descartar-alteracoes/', v(self.descartar_alteracoes_view),
+                 name='redator_conversa_descartar_alteracoes'),
+            path('editar-post/<int:post_id>/', v(self.editar_post_view), name='redator_conversa_editar_post'),
         ] + super().get_urls()
 
     # -- telas ---------------------------------------------------------------
@@ -87,6 +110,9 @@ class ConversaAdmin(admin.ModelAdmin):
         conversa = self._conversa(request, pk)
         agente.expirar_pendentes(conversa)
         post = conversa.post
+        versao = agente.versao(conversa)
+        if versao:
+            versao['imagem_url'] = default_storage.url(versao['imagem']) if versao['imagem'] else ''
         context = {
             **self.admin_site.each_context(request),
             'opts': self.model._meta,
@@ -96,6 +122,10 @@ class ConversaAdmin(admin.ModelAdmin):
             'pensando': conversa.mensagens.filter(estado=Mensagem.PENSANDO).exists(),
             'post': post,
             'post_rascunho': bool(post and post.status == 'rascunho'),
+            'versao': versao,
+            'editando_publicado': agente.editando_publicado(conversa),
+            'tem_proposta': bool(conversa.proposta),
+            'max_imagem_mb': MAX_IMAGEM_MB,
             'restantes_hoje': agente.restantes_hoje(),
             'restantes_conversa': agente.restantes_na_conversa(conversa),
             'max_caracteres': settings.REDATOR_MAX_CARACTERES,
@@ -109,11 +139,16 @@ class ConversaAdmin(admin.ModelAdmin):
         conversa = self._conversa(request, pk)
         agente.expirar_pendentes(conversa)
         texto = request.POST.get('texto', '')
-        erro = agente.motivo_bloqueio(conversa, texto)
+        form = ImagemForm(files=request.FILES)
+        if not form.is_valid():
+            messages.error(request, form.errors['imagem'][0])
+            return redirect('admin:redator_conversa_chat', pk)
+        imagem = form.cleaned_data.get('imagem')
+        erro = agente.motivo_bloqueio(conversa, texto, tem_imagem=bool(imagem))
         if erro:
             messages.error(request, erro)
         else:
-            agente.enviar(conversa, texto, request.user)
+            agente.enviar(conversa, texto, request.user, imagem=imagem)
         return redirect('admin:redator_conversa_chat', pk)
 
     def estado_view(self, request, pk):
@@ -173,3 +208,42 @@ class ConversaAdmin(admin.ModelAdmin):
         self._concluir(conversa, f'⏰ Post agendado para {quando_txt}: "{post.titulo}".', 'Post agendado')
         messages.success(request, f'Post agendado para {quando_txt}.')
         return redirect('admin:redator_conversa_chat', pk)
+
+    def _ocupado(self, request, conversa):
+        if conversa.mensagens.filter(estado=Mensagem.PENSANDO).exists():
+            messages.error(request, 'Espere o agente terminar a resposta antes de aprovar.')
+            return True
+        return False
+
+    def aprovar_alteracoes_view(self, request, pk):
+        if request.method != 'POST':
+            return redirect('admin:redator_conversa_chat', pk)
+        conversa = self._conversa(request, pk)
+        if not (agente.editando_publicado(conversa) and conversa.proposta):
+            messages.error(request, 'Não há alterações para aprovar.')
+        elif not self._ocupado(request, conversa):
+            agente.aprovar_alteracoes(conversa)
+            post = conversa.post
+            self._concluir(conversa, f'✅ Alterações aprovadas: "{post.titulo}" foi atualizado.',
+                           'Alterações aprovadas')
+            messages.success(request, format_html(
+                'Post atualizado. <a href="{}" target="_blank">Ver no blog</a>', post.get_absolute_url()))
+        return redirect('admin:redator_conversa_chat', pk)
+
+    def descartar_alteracoes_view(self, request, pk):
+        if request.method != 'POST':
+            return redirect('admin:redator_conversa_chat', pk)
+        conversa = self._conversa(request, pk)
+        if conversa.proposta and not self._ocupado(request, conversa):
+            conversa.proposta = None
+            conversa.save(update_fields=['proposta', 'atualizada_em'])
+            Mensagem.objects.create(conversa=conversa, autor=Mensagem.SISTEMA,
+                                    texto='Alterações descartadas. O post no ar continua como estava.')
+        return redirect('admin:redator_conversa_chat', pk)
+
+    def editar_post_view(self, request, post_id):
+        if not request.user.is_staff:
+            raise Http404
+        post = get_object_or_404(Post, pk=post_id)
+        conversa = agente.iniciar_edicao(post, request.user)
+        return redirect('admin:redator_conversa_chat', conversa.pk)

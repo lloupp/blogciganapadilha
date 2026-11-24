@@ -40,8 +40,13 @@ def _inicio_do_dia():
     return agora.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _pedidos(qs):
+    """Mensagens da dona que acionam o modelo (imagem sozinha não conta)."""
+    return qs.filter(autor=Mensagem.DONA).exclude(texto='')
+
+
 def mensagens_hoje():
-    return Mensagem.objects.filter(autor=Mensagem.DONA, criada_em__gte=_inicio_do_dia()).count()
+    return _pedidos(Mensagem.objects.filter(criada_em__gte=_inicio_do_dia())).count()
 
 
 def restantes_hoje():
@@ -49,18 +54,18 @@ def restantes_hoje():
 
 
 def restantes_na_conversa(conversa):
-    usadas = conversa.mensagens.filter(autor=Mensagem.DONA).count()
+    usadas = _pedidos(conversa.mensagens.all()).count()
     return max(0, settings.REDATOR_MSGS_POR_CONVERSA - usadas)
 
 
-def motivo_bloqueio(conversa, texto):
-    """Devolve a mensagem de erro se a dona não puder enviar `texto` agora, ou None."""
+def motivo_bloqueio(conversa, texto, tem_imagem=False):
+    """Devolve a mensagem de erro se a dona não puder enviar agora, ou None."""
     if conversa.encerrada:
         return 'Esta conversa foi encerrada. Comece uma nova conversa para outro post.'
     if conversa.mensagens.filter(estado=Mensagem.PENSANDO).exists():
         return 'O agente ainda está escrevendo a resposta anterior. Aguarde um instante.'
     if not texto.strip():
-        return 'Escreva uma mensagem.'
+        return None if tem_imagem else 'Escreva uma mensagem ou anexe uma imagem.'
     if len(texto) > settings.REDATOR_MAX_CARACTERES:
         return (f'Mensagem longa demais ({len(texto)} caracteres). '
                 f'O limite é {settings.REDATOR_MAX_CARACTERES}.')
@@ -97,15 +102,45 @@ def _bloco_posts():
     return '\n'.join(linhas) or '(o blog ainda não tem posts)'
 
 
-def _bloco_rascunho(conversa):
+def editando_publicado(conversa):
+    """True quando a conversa altera um post já publicado ou agendado."""
+    return bool(conversa.post and conversa.post.status == 'publicado')
+
+
+def versao(conversa):
+    """A versão que a dona está vendo: o rascunho, ou o post no ar + as alterações propostas."""
     post = conversa.post
     if not post:
+        return None
+    v = {
+        'titulo': post.titulo,
+        'subtitulo': post.subtitulo,
+        'categoria': post.categoria.nome if post.categoria else '',
+        'tags': list(post.tags.values_list('nome', flat=True)),
+        'tempo_leitura': post.tempo_leitura,
+        'conteudo': post.conteudo,
+        'imagem': post.imagem_destaque.name if post.imagem_destaque else '',
+    }
+    if editando_publicado(conversa) and conversa.proposta:
+        v.update(conversa.proposta)
+    return v
+
+
+def _bloco_rascunho(conversa):
+    v = versao(conversa)
+    if not v:
         return '(ainda não há rascunho nesta conversa)'
-    tags = ', '.join(post.tags.values_list('nome', flat=True))
+    if editando_publicado(conversa):
+        aviso = ('[Post JÁ PUBLICADO que a dona quer editar. Abaixo, a versão com as alterações '
+                 'pedidas até agora. Mude só o que ela pedir.]\n')
+    else:
+        aviso = ''
+    imagem = 'sim' if v['imagem'] else 'não'
     return (
-        f'TITULO: {post.titulo}\nSUBTITULO: {post.subtitulo}\n'
-        f'CATEGORIA: {post.categoria.nome if post.categoria else ""}\nTAGS: {tags}\n'
-        f'TEMPO_LEITURA: {post.tempo_leitura}\nCONTEUDO:\n{post.conteudo}'
+        f'{aviso}TITULO: {v["titulo"]}\nSUBTITULO: {v["subtitulo"]}\n'
+        f'CATEGORIA: {v["categoria"]}\nTAGS: {", ".join(v["tags"])}\n'
+        f'TEMPO_LEITURA: {v["tempo_leitura"]}\nTEM IMAGEM DE DESTAQUE: {imagem}\n'
+        f'CONTEUDO:\n{v["conteudo"]}'
     )
 
 
@@ -114,6 +149,8 @@ def _bloco_conversa(conversa):
     linhas = []
     for m in conversa.mensagens.filter(estado=Mensagem.PRONTA):
         texto = m.texto
+        if m.autor == Mensagem.DONA and m.imagem:
+            texto = ('[enviou uma imagem, que já virou a imagem de destaque do post] ' + texto).strip()
         if m.autor == Mensagem.AGENTE and m.trouxe_rascunho:
             texto += '\n[o rascunho enviado nesta resposta está em RASCUNHO ATUAL]'
         linhas.append(f'{nomes[m.autor]}: {texto}')
@@ -260,37 +297,73 @@ def _limpar_conteudo(texto):
     return texto.strip()
 
 
-def aplicar_post(conversa, dados):
-    """Cria ou atualiza o rascunho da conversa. Nunca publica."""
-    post = conversa.post
-    if post is None or post.status != 'rascunho':
-        post = Post(status='rascunho')
-    post.titulo = dados['TITULO'][:200]
-    post.subtitulo = dados.get('SUBTITULO', '')[:300]
-    post.conteudo = _limpar_conteudo(dados['CONTEUDO'])
+def _normalizar(dados):
+    conteudo = _limpar_conteudo(dados['CONTEUDO'])
     nome_categoria = dados.get('CATEGORIA', '').strip()
-    post.categoria = (
-        Categoria.objects.filter(nome__iexact=nome_categoria).first() if nome_categoria else None
-    )
+    categoria = Categoria.objects.filter(nome__iexact=nome_categoria).first() if nome_categoria else None
     try:
-        post.tempo_leitura = max(1, min(60, int(re.sub(r'\D', '', dados.get('TEMPO_LEITURA', '')) or 0)))
+        tempo = int(re.sub(r'\D', '', dados.get('TEMPO_LEITURA', '')) or 0)
     except ValueError:
-        pass
-    if not post.tempo_leitura:
-        post.tempo_leitura = max(1, round(len(post.conteudo.split()) / 200))
-    post.status = 'rascunho'
-    post.save()
+        tempo = 0
+    if not tempo:
+        tempo = round(len(conteudo.split()) / 200)
+    tags = [t.strip()[:50] for t in dados.get('TAGS', '').split(',') if t.strip()][:5]
+    return {
+        'titulo': dados['TITULO'][:200],
+        'subtitulo': dados.get('SUBTITULO', '')[:300],
+        'categoria': categoria.nome if categoria else '',
+        'tags': tags,
+        'tempo_leitura': max(1, min(60, tempo)),
+        'conteudo': conteudo,
+    }
 
+
+def _tags(nomes):
     tags = []
-    for nome in [t.strip() for t in dados.get('TAGS', '').split(',') if t.strip()][:5]:
-        nome = nome[:50]
+    for nome in nomes:
         tag = Tag.objects.filter(nome__iexact=nome).first()
         if tag is None and slugify(nome):
             tag = Tag.objects.filter(slug=slugify(nome)).first() or Tag.objects.create(nome=nome)
-        if tag:
+        if tag and tag not in tags:
             tags.append(tag)
-    post.tags.set(tags)
+    return tags
 
+
+def _gravar_no_post(post, v):
+    post.titulo = v['titulo']
+    post.subtitulo = v['subtitulo']
+    post.conteudo = v['conteudo']
+    post.categoria = Categoria.objects.filter(nome__iexact=v['categoria']).first() if v['categoria'] else None
+    post.tempo_leitura = v['tempo_leitura']
+    if v.get('imagem') and v['imagem'] != (post.imagem_destaque.name or ''):
+        post.imagem_destaque.name = v['imagem']
+    post.save()
+    post.tags.set(_tags(v['tags']))
+
+
+def _imagem_mais_recente(conversa):
+    m = conversa.mensagens.filter(autor=Mensagem.DONA).exclude(imagem='').order_by('-criada_em', '-pk').first()
+    return m.imagem.name if m else ''
+
+
+def aplicar_post(conversa, dados):
+    """Grava a versão do agente. Nunca publica.
+
+    Rascunho: atualiza o post direto. Post já publicado/agendado: guarda como
+    proposta, e o post no ar só muda quando a dona aprovar.
+    """
+    v = _normalizar(dados)
+    if editando_publicado(conversa):
+        imagem = (conversa.proposta or {}).get('imagem')
+        conversa.proposta = {**v, **({'imagem': imagem} if imagem else {})}
+        conversa.save(update_fields=['proposta', 'atualizada_em'])
+        return conversa.post
+
+    post = conversa.post or Post(status='rascunho')
+    if not post.imagem_destaque:
+        v['imagem'] = _imagem_mais_recente(conversa)
+    post.status = 'rascunho'
+    _gravar_no_post(post, v)
     conversa.post = post
     if not conversa.titulo:
         conversa.titulo = post.titulo[:200]
@@ -298,23 +371,65 @@ def aplicar_post(conversa, dados):
     return post
 
 
+def aplicar_imagem(conversa, nome_arquivo):
+    """Usa a imagem enviada como destaque. Devolve o aviso para a conversa."""
+    if editando_publicado(conversa):
+        conversa.proposta = {**(conversa.proposta or {}), 'imagem': nome_arquivo}
+        conversa.save(update_fields=['proposta', 'atualizada_em'])
+        return '📷 Imagem recebida. Ela entra no post quando você aprovar as alterações.'
+    if conversa.post:
+        conversa.post.imagem_destaque.name = nome_arquivo
+        conversa.post.save(update_fields=['imagem_destaque', 'data_atualizacao'])
+        return '📷 Imagem colocada como destaque do rascunho.'
+    return '📷 Imagem recebida. Ela vira o destaque quando o rascunho ficar pronto.'
+
+
+def aprovar_alteracoes(conversa):
+    """Leva a proposta para o post no ar, mantendo status e data de publicação."""
+    _gravar_no_post(conversa.post, versao(conversa))
+    conversa.proposta = None
+    conversa.save(update_fields=['proposta', 'atualizada_em'])
+
+
+def iniciar_edicao(post, usuario=None):
+    conversa = Conversa.objects.create(post=post, titulo=f'Edição: {post.titulo}'[:200], criada_por=usuario)
+    situacao = 'publicado' if post.status == 'publicado' else 'rascunho'
+    extra = (' O post no ar só muda quando você aprovar as alterações.'
+             if situacao == 'publicado' else '')
+    Mensagem.objects.create(
+        conversa=conversa, autor=Mensagem.SISTEMA,
+        texto=f'✏️ Editando o post "{post.titulo}" ({situacao}). Diga o que quer mudar.{extra}',
+    )
+    return conversa
+
+
 # ---------------------------------------------------------------------------
 # Fluxo
 # ---------------------------------------------------------------------------
 
-def enviar(conversa, texto, usuario=None):
+def enviar(conversa, texto, usuario=None, imagem=None):
     """Registra a mensagem da dona e cria a resposta "pensando".
 
     Quem responde é o serviço blog-mae-redator (comando redator_worker), fora do
     isolamento do site: o gunicorn não enxerga o opencode nem o login dele.
     """
+    texto = texto.strip()
     with transaction.atomic():
-        Mensagem.objects.create(conversa=conversa, autor=Mensagem.DONA, texto=texto.strip())
-        resposta = Mensagem.objects.create(
-            conversa=conversa, autor=Mensagem.AGENTE, estado=Mensagem.PENSANDO,
-        )
-        if not conversa.titulo:
-            conversa.titulo = texto.strip()[:80]
+        enviada = Mensagem(conversa=conversa, autor=Mensagem.DONA, texto=texto)
+        if imagem:
+            enviada.imagem = imagem
+        enviada.save()
+        if imagem:
+            conversa.refresh_from_db()
+            Mensagem.objects.create(conversa=conversa, autor=Mensagem.SISTEMA,
+                                    texto=aplicar_imagem(conversa, enviada.imagem.name))
+        resposta = None
+        if texto:  # imagem sozinha não aciona o modelo nem gasta a cota
+            resposta = Mensagem.objects.create(
+                conversa=conversa, autor=Mensagem.AGENTE, estado=Mensagem.PENSANDO,
+            )
+        if not conversa.titulo and texto:
+            conversa.titulo = texto[:80]
         # Só estes campos: o objeto pode estar desatualizado quanto ao post.
         conversa.save(update_fields=['titulo', 'atualizada_em'])
     return resposta

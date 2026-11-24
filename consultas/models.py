@@ -14,7 +14,10 @@ class TipoConsulta(models.Model):
     descricao = models.TextField('Descrição', blank=True)
     preco = models.DecimalField('Preço (R$)', max_digits=8, decimal_places=2)
     duracao_minutos = models.PositiveIntegerField('Duração (min)', default=30)
-    icone = models.CharField('Ícone (emoji)', max_length=10, default='🔮')
+    icone = models.CharField('Ícone (emoji)', max_length=10, default='🔮',
+                             help_text='Aparece quando não há imagem.')
+    imagem = models.ImageField('Imagem', upload_to='consultas/', blank=True,
+                               help_text='Opcional. Aparece no topo do cartão no lugar do emoji.')
     ativo = models.BooleanField('Ativo', default=True)
     ordem = models.PositiveIntegerField('Ordem', default=0)
 

@@ -26,6 +26,9 @@
   .redator-acoes form { display: flex; gap: 8px; align-items: center; margin: 0; }
   .redator-acoes input[type=submit], .redator-acoes .button { padding: 8px 14px; }
   .redator-vazio { opacity: .7; }
+  .redator-foto { display: block; max-width: 220px; max-height: 220px; border-radius: 8px; margin: 4px 0; }
+  .redator-anexo { display: block; margin: 8px 0 0; font-size: .9rem; }
+  .redator-aviso { background: var(--message-warning-bg, #ffc); padding: 8px 12px; border-radius: 8px; }
 </style>
 {% endblock %}
 
@@ -47,8 +50,9 @@
         {% if m.estado == 'pensando' %}
           <div class="redator-msg agente"><small>Agente</small><span class="redator-pensando">Escrevendo a resposta… (pode levar até 1 minuto)</span></div>
         {% else %}
-          <div class="redator-msg {{ m.autor }}{% if m.estado == 'erro' %} erro{% endif %}">{% if m.autor != 'sistema' %}<small>{% if m.autor == 'dona' %}Você{% else %}Agente{% endif %} · {{ m.criada_em|date:"d/m H:i" }}</small>{% endif %}{{ m.texto }}{% if m.trouxe_rascunho %}
-<span class="tag-rascunho">📝 Rascunho atualizado ao lado</span>{% endif %}</div>
+          <div class="redator-msg {{ m.autor }}{% if m.estado == 'erro' %} erro{% endif %}">{% if m.autor != 'sistema' %}<small>{% if m.autor == 'dona' %}Você{% else %}Agente{% endif %} · {{ m.criada_em|date:"d/m H:i" }}</small>{% endif %}{% if m.imagem %}<img class="redator-foto" src="{{ m.imagem.url }}" alt="Imagem enviada">{% if m.texto %}
+{% endif %}{% endif %}{{ m.texto }}{% if m.trouxe_rascunho %}
+<span class="tag-rascunho">📝 {% if editando_publicado %}Alterações propostas ao lado{% else %}Rascunho atualizado ao lado{% endif %}</span>{% endif %}</div>
         {% endif %}
       {% empty %}
         <p class="redator-vazio">Diga sobre o que quer escrever. Exemplo: “Quero um post sobre o significado da carta O Sol no tarô, para quem está começando.”</p>
@@ -59,12 +63,15 @@
       <p><strong>Esta conversa está encerrada</strong>{% if conversa.motivo_encerramento %} ({{ conversa.motivo_encerramento|lower }}){% endif %}.</p>
       <p><a class="button" href="{% url 'admin:redator_conversa_add' %}">➕ Nova conversa</a></p>
     {% else %}
-      <form method="post" action="{% url 'admin:redator_conversa_enviar' conversa.pk %}" id="form-enviar">
+      <form method="post" action="{% url 'admin:redator_conversa_enviar' conversa.pk %}" id="form-enviar" enctype="multipart/form-data">
         {% csrf_token %}
-        <textarea name="texto" maxlength="{{ max_caracteres }}" placeholder="Escreva aqui o que quer no post ou o que mudar no rascunho…" {% if pensando %}disabled{% endif %} required></textarea>
+        <textarea name="texto" maxlength="{{ max_caracteres }}" placeholder="Escreva aqui o que quer no post ou o que mudar…" {% if pensando %}disabled{% endif %}></textarea>
+        <label class="redator-anexo">📷 Anexar imagem de destaque (opcional, até {{ max_imagem_mb }} MB):
+          <input type="file" name="imagem" accept="image/jpeg,image/png,image/webp" {% if pensando %}disabled{% endif %}>
+        </label>
         <div class="redator-cota">
           Restam {{ restantes_hoje }} mensage{{ restantes_hoje|pluralize:"m,ns" }} hoje e {{ restantes_conversa }} nesta conversa.
-          O agente só ajuda com as postagens do blog.
+          O agente só ajuda com as postagens do blog. Enviar só uma imagem não gasta mensagens.
         </div>
         <input type="submit" class="default" value="Enviar" {% if pensando %}disabled{% endif %}>
       </form>
@@ -72,23 +79,27 @@
   </section>
 
   <section>
-    <h2>📝 Rascunho do post</h2>
+    <h2>{% if editando_publicado %}✏️ Editando post publicado{% else %}📝 Rascunho do post{% endif %}</h2>
     {% if post %}
+      {% if editando_publicado %}
+        <p class="redator-aviso">{% if tem_proposta %}Esta é a <strong>nova versão proposta</strong>. O post no ar continua igual até você aprovar.{% else %}Este é o post como está no ar. Diga na conversa o que quer mudar.{% endif %}</p>
+      {% endif %}
       <div class="redator-post">
-        <h3>{{ post.titulo }}</h3>
-        {% if post.subtitulo %}<p class="sub">{{ post.subtitulo }}</p>{% endif %}
+        <h3>{{ versao.titulo }}</h3>
+        {% if versao.subtitulo %}<p class="sub">{{ versao.subtitulo }}</p>{% endif %}
         <div class="meta">
           {% if post.esta_agendado %}⏰ Agendado para {{ post.data_publicacao|date:"d/m/Y H:i" }}
           {% elif post.status == 'publicado' %}✅ Publicado em {{ post.data_publicacao|date:"d/m/Y H:i" }}
           {% else %}Rascunho (ainda não aparece no blog){% endif %}
-          · {{ post.categoria|default:"sem categoria" }} · {{ post.tempo_leitura }} min
-          {% with tags=post.tags.all %}{% if tags %}· {{ tags|join:", " }}{% endif %}{% endwith %}
+          · {{ versao.categoria|default:"sem categoria" }} · {{ versao.tempo_leitura }} min
+          {% if versao.tags %}· {{ versao.tags|join:", " }}{% endif %}
         </div>
-        {% if post.imagem_destaque %}<p><img src="{{ post.imagem_destaque.url }}" alt="" style="max-width:100%;border-radius:8px"></p>{% endif %}
-        <div class="texto">{{ post.conteudo }}</div>
+        {% if versao.imagem_url %}<p><img src="{{ versao.imagem_url }}" alt="" style="max-width:100%;border-radius:8px"></p>
+        {% else %}<p class="redator-vazio">Sem imagem de destaque. Anexe uma foto na conversa.</p>{% endif %}
+        <div class="texto">{{ versao.conteudo }}</div>
 
         <div class="redator-acoes">
-          {% if post_rascunho and not pensando %}
+          {% if post_rascunho and not pensando and not conversa.encerrada %}
             <form method="post" action="{% url 'admin:redator_conversa_publicar' conversa.pk %}">
               {% csrf_token %}
               <input type="submit" class="default" value="✅ Aprovar e publicar agora">
@@ -99,7 +110,17 @@
               <input type="submit" value="⏰ Aprovar e agendar">
             </form>
           {% endif %}
-          <a class="button" href="{% url 'admin:core_post_change' post.pk %}">✏️ Abrir no editor (imagem, ajustes)</a>
+          {% if editando_publicado and tem_proposta and not pensando and not conversa.encerrada %}
+            <form method="post" action="{% url 'admin:redator_conversa_aprovar_alteracoes' conversa.pk %}">
+              {% csrf_token %}
+              <input type="submit" class="default" value="✅ Aprovar alterações">
+            </form>
+            <form method="post" action="{% url 'admin:redator_conversa_descartar_alteracoes' conversa.pk %}">
+              {% csrf_token %}
+              <input type="submit" value="Descartar alterações">
+            </form>
+          {% endif %}
+          <a class="button" href="{% url 'admin:core_post_change' post.pk %}">Abrir no editor</a>
           {% if post.status == 'publicado' and not post.esta_agendado %}<a class="button" href="{{ post.get_absolute_url }}" target="_blank">Ver no blog</a>{% endif %}
         </div>
       </div>
@@ -131,7 +152,11 @@
     box.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { form.requestSubmit(); }
     });
-    form.addEventListener('submit', function () {
+    var foto = form.querySelector('input[type=file]');
+    form.addEventListener('submit', function (e) {
+      if (!box.value.trim() && !(foto && foto.files.length)) {
+        e.preventDefault(); box.focus(); return;
+      }
       form.querySelector('input[type=submit]').disabled = true;
     });
     window.scrollTo(0, document.body.scrollHeight);

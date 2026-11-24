@@ -6,11 +6,27 @@ from .models import Atendente, Consulta, Conversa, Mensagem, TipoConsulta
 
 @admin.register(TipoConsulta)
 class TipoConsultaAdmin(admin.ModelAdmin):
-    list_display = ['icone', 'nome', 'preco', 'duracao_minutos', 'ativo', 'ordem']
+    list_display = ['miniatura', 'nome', 'preco', 'duracao_minutos', 'ativo', 'ordem']
     list_editable = ['ativo', 'ordem']
     prepopulated_fields = {'slug': ('nome',)}
     search_fields = ['nome', 'descricao']
     list_filter = ['ativo']
+    readonly_fields = ['previa']
+    fields = ['nome', 'slug', 'descricao', 'preco', 'duracao_minutos',
+              'imagem', 'previa', 'icone', 'ativo', 'ordem']
+
+    @admin.display(description='Imagem')
+    def miniatura(self, obj):
+        if obj.imagem:
+            return format_html('<img src="{}" style="height:40px;width:60px;object-fit:cover;border-radius:6px">',
+                               obj.imagem.url)
+        return obj.icone
+
+    @admin.display(description='Prévia da imagem')
+    def previa(self, obj):
+        if obj.imagem:
+            return format_html('<img src="{}" style="max-width:320px;border-radius:10px">', obj.imagem.url)
+        return 'Sem imagem: o cartão mostra o emoji.'
 
 
 @admin.register(Consulta)

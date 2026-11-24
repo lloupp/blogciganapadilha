@@ -17,6 +17,9 @@ class Conversa(models.Model):
     )
     encerrada = models.BooleanField('Encerrada', default=False)
     motivo_encerramento = models.CharField('Motivo do encerramento', max_length=200, blank=True)
+    # Ao editar um post já publicado/agendado, a nova versão fica aqui até a
+    # dona aprovar; o post no ar não muda antes disso.
+    proposta = models.JSONField('Alterações propostas', null=True, blank=True)
     criada_em = models.DateTimeField('Criada em', auto_now_add=True)
     atualizada_em = models.DateTimeField('Atualizada em', auto_now=True)
 
@@ -48,6 +51,7 @@ class Mensagem(models.Model):
     conversa = models.ForeignKey(Conversa, on_delete=models.CASCADE, related_name='mensagens')
     autor = models.CharField(max_length=10, choices=AUTORES)
     texto = models.TextField(blank=True)
+    imagem = models.ImageField('Imagem enviada', upload_to='redator/%Y/%m/', blank=True)
     estado = models.CharField(max_length=10, choices=ESTADOS, default=PRONTA)
     trouxe_rascunho = models.BooleanField('Trouxe rascunho do post', default=False)
     fora_do_assunto = models.BooleanField(default=False)

@@ -594,3 +594,19 @@ class ChatCtaTests(ConsultasTestCase):
         self.assertContains(resp, 'Ver conversa')
         self.assertContains(resp, self._chat_url(consulta))
         self.assertNotContains(resp, 'Entrar no chat')
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False, CONSULTAS_ABERTAS=True,
+    STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage',
+)
+class ImagemTipoConsultaTests(TestCase):
+    def test_cartao_mostra_imagem_ou_emoji(self):
+        com = TipoConsulta.objects.create(nome='Tarô do Amor', preco=Decimal('80'), icone='💘')
+        com.imagem.name = 'consultas/amor.jpg'
+        com.save()
+        TipoConsulta.objects.create(nome='Cartas Ciganas', preco=Decimal('50'), icone='🔮')
+        r = self.client.get(reverse('consultas:lista'))
+        self.assertContains(r, '/media/consultas/amor.jpg')
+        self.assertContains(r, '🔮')
+        self.assertNotContains(r, '💘')
