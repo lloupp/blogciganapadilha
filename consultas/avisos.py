@@ -1,8 +1,10 @@
 """Avisos para a dona do blog (Telegram) quando uma consulta é paga."""
 import logging
+from urllib.parse import quote
 
 import requests
 from django.conf import settings
+from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +37,17 @@ def enviar_telegram(texto):
 
 def avisar_pagamento(consulta):
     tipo = consulta.tipo_consulta
+    chat = settings.SITE_URL + reverse('consultas:chat', kwargs={'referencia': consulta.referencia})
+    primeiro_nome = (consulta.nome_cliente.split() or [''])[0].title()
+    convite = (f'Olá, {primeiro_nome}! Recebi o pagamento da sua consulta ({tipo.nome}). '
+               f'Entre no chat por este link para começarmos: {chat}')
     texto = (
         '🔮 Nova consulta paga!\n\n'
         f'{tipo.icone} {tipo.nome} — R$ ' + f'{consulta.valor:.2f}'.replace('.', ',') + '\n'
         f'👤 {consulta.nome_cliente}\n'
         f'📱 WhatsApp: {consulta.whatsapp_cliente}\n\n'
-        f'Abra o atendimento: {settings.SITE_URL}/atendimento/'
+        f'Abra o atendimento: {settings.SITE_URL}/atendimento/\n\n'
+        'Se a cliente não aparecer no chat, mande o link para ela pelo WhatsApp '
+        f'(já vai com a mensagem pronta): https://wa.me/{consulta.whatsapp_cliente}?text={quote(convite)}'
     )
     return enviar_telegram(texto)

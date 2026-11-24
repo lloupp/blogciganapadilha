@@ -440,13 +440,20 @@ def webhook(request):
     payment_id = request.GET.get('data.id') or request.GET.get('id')
     topic = request.GET.get('type') or request.GET.get('topic')
 
-    if not payment_id and request.body:
+    body = {}
+    if request.body:
         try:
             body = json.loads(request.body.decode('utf-8'))
         except (ValueError, UnicodeDecodeError):
             body = {}
-        payment_id = payment_id or (body.get('data') or {}).get('id')
-        topic = topic or body.get('type')
+        if not isinstance(body, dict):
+            body = {}
+    payment_id = payment_id or (body.get('data') or {}).get('id')
+    topic = topic or body.get('type')
+    # Pedidos (API de Orders): o MP pode mandar type=order, action "order.*" ou só o ID "ORD...".
+    if (topic == 'order' or str(body.get('action', '')).startswith('order.')
+            or str(payment_id or '').startswith('ORD')):
+        topic = 'order'
 
     if topic == 'order':
         if not payment_id or not settings.MERCADOPAGO_ACCESS_TOKEN:

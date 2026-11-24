@@ -718,6 +718,8 @@ class AvisoTelegramTests(ConsultasTestCase):
         self.assertIn('Nova consulta paga', enviado['text'])
         self.assertIn('R$ 80,00', enviado['text'])
         self.assertIn('/atendimento/', enviado['text'])
+        self.assertIn('https://wa.me/', enviado['text'])
+        self.assertIn(str(self.consulta.referencia), enviado['text'])
 
     @override_settings(TELEGRAM_BOT_TOKEN='123:abc', TELEGRAM_CHAT_ID='999')
     def test_falha_do_telegram_nao_impede_aprovacao(self):
@@ -753,6 +755,17 @@ class VerificacaoPeriodicaTests(ConsultasTestCase):
         for c, esperado in ((paga, 'aprovado'), (aguardando, 'pendente'), (sem_pix, 'pendente')):
             c.refresh_from_db()
             self.assertEqual(c.status, esperado)
+
+    def test_webhook_de_order_so_pelo_corpo(self):
+        consulta = self._criar_consulta(mp_order_id='ORDCORPO1')
+        corpo = {'action': 'order.processed', 'data': {'id': 'ORDCORPO1'}}
+        with mock.patch('consultas.views.requests.get',
+                        return_value=_resposta(_order(consulta, 'processed', '80.00', 'ORDCORPO1'), 200)):
+            r = self.client.post(reverse('consultas:webhook'), data=json.dumps(corpo),
+                                 content_type='application/json')
+        self.assertEqual(r.json()['status'], 'ok')
+        consulta.refresh_from_db()
+        self.assertEqual(consulta.status, 'aprovado')
 
     def test_webhook_ignora_id_de_pedido_invalido(self):
         with mock.patch('consultas.views.requests.get') as g:
