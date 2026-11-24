@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'blog_mae.middleware.WwwToNonWwwRedirectMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -66,6 +67,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.google_analytics',
+                'core.context_processors.site_url',
             ],
         },
     },

@@ -6,3 +6,10 @@ def google_analytics(request):
     return {
         'GOOGLE_ANALYTICS_ID': settings.GOOGLE_ANALYTICS_ID,
     }
+
+
+def site_url(request):
+    """Domínio canônico (não-www) para o link rel=canonical do base.html."""
+    return {
+        'SITE_URL': settings.SITE_URL,
+    }

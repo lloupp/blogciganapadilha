@@ -14,7 +14,7 @@ def robots_txt(request):
         'Disallow: /admin/',
         'Allow: /',
         '',
-        f'Sitemap: {request.build_absolute_uri(reverse("core:sitemap"))}',
+        f'Sitemap: {settings.SITE_URL}{reverse("core:sitemap")}',
     ]
     return HttpResponse('\n'.join(lines), content_type='text/plain')
 
@@ -36,7 +36,7 @@ def sitemap_xml(request):
     for name, priority, freq in static_pages:
         url = ET.SubElement(urlset, 'url')
         loc = ET.SubElement(url, 'loc')
-        loc.text = request.build_absolute_uri(reverse(name))
+        loc.text = settings.SITE_URL + reverse(name)
         changefreq = ET.SubElement(url, 'changefreq')
         changefreq.text = freq
         prio = ET.SubElement(url, 'priority')
@@ -49,7 +49,7 @@ def sitemap_xml(request):
         ]
         for caminho in consultas_urls:
             url = ET.SubElement(urlset, 'url')
-            ET.SubElement(url, 'loc').text = request.build_absolute_uri(caminho)
+            ET.SubElement(url, 'loc').text = settings.SITE_URL + caminho
             ET.SubElement(url, 'changefreq').text = 'weekly'
             ET.SubElement(url, 'priority').text = '0.9'
 
@@ -57,7 +57,7 @@ def sitemap_xml(request):
     for post in Post.objects.publicados():
         url = ET.SubElement(urlset, 'url')
         loc = ET.SubElement(url, 'loc')
-        loc.text = request.build_absolute_uri(post.get_absolute_url())
+        loc.text = settings.SITE_URL + post.get_absolute_url()
         lastmod = ET.SubElement(url, 'lastmod')
         lastmod.text = post.data_atualizacao.strftime('%Y-%m-%d')
         changefreq = ET.SubElement(url, 'changefreq')
@@ -69,7 +69,7 @@ def sitemap_xml(request):
     for cat in Categoria.objects.filter(ativo=True):
         url = ET.SubElement(urlset, 'url')
         loc = ET.SubElement(url, 'loc')
-        loc.text = request.build_absolute_uri(cat.get_absolute_url())
+        loc.text = settings.SITE_URL + cat.get_absolute_url()
         changefreq = ET.SubElement(url, 'changefreq')
         changefreq.text = 'monthly'
         prio = ET.SubElement(url, 'priority')
