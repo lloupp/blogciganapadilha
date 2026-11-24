@@ -2,6 +2,15 @@
 {% load static %}
 
 {% block content %}
+{% if tipos %}
+<!-- Consultas online primeiro: atendente + valores -->
+<section class="section consultas-home" aria-label="Consultas online">
+    <h1 class="section-title">🔮 Consultas Online</h1>
+    {% if atendente %}{% include 'consultas/_atendente.html' %}{% endif %}
+    <h2 class="section-title consultas-home-sub">💰 Escolha sua consulta</h2>
+    {% include 'consultas/_tipos_grid.html' %}
+</section>
+{% else %}
 <!-- Hero Banner -->
 <section class="hero" aria-label="Bem-vindo ao Blog Cigana Padilha">
     <div class="hero-content">
@@ -10,6 +19,7 @@
         <a href="{% url 'core:post_list' %}" class="btn btn-primary">Explorar Artigos</a>
     </div>
 </section>
+{% endif %}
 
 <!-- Posts em Destaque -->
 {% if posts_destaque %}

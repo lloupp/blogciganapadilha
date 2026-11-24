@@ -302,6 +302,7 @@ def lista(request):
     tipos = TipoConsulta.objects.filter(ativo=True)
     context = {
         'tipos': tipos,
+        'atendente': Atendente.padrao(),
         'depoimentos': Depoimento.objects.aleatorios(),
         'mp_configurado': bool(settings.MERCADOPAGO_ACCESS_TOKEN),
     }

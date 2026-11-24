@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
 from django.urls import reverse
-from consultas.models import Depoimento
+from consultas.models import Atendente, Depoimento, TipoConsulta
 from .models import Post, Categoria, Tag
 
 
@@ -80,6 +81,9 @@ def home(request):
         'categorias': categorias,
         'depoimentos': Depoimento.objects.aleatorios(),
     }
+    if settings.CONSULTAS_ABERTAS or request.user.is_staff:
+        context['atendente'] = Atendente.padrao()
+        context['tipos'] = TipoConsulta.objects.filter(ativo=True)
     return render(request, 'core/home.html', context)
 
 

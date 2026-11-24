@@ -13,38 +13,9 @@
 </div>
 {% endif %}
 
-<div class="posts-grid">
-    {% for tipo in tipos %}
-    <article class="post-card">
-        {% if tipo.imagem %}
-        <div class="card-image">
-            <img src="{{ tipo.imagem.url }}" alt="{{ tipo.nome }}" loading="lazy">
-        </div>
-        {% else %}
-        <div class="card-image card-image-placeholder">
-            <span class="placeholder-icon">{{ tipo.icone }}</span>
-        </div>
-        {% endif %}
-        <div class="card-body">
-            <h3 class="card-title">
-                <a href="{{ tipo.get_absolute_url }}">{{ tipo.nome }}</a>
-            </h3>
-            {% if tipo.descricao %}
-            <p class="card-text">{{ tipo.descricao|truncatechars:140 }}</p>
-            {% endif %}
-            <div class="card-meta">
-                <span>⏱️ {{ tipo.duracao_minutos }} min</span>
-                <span>💰 R$ {{ tipo.preco }}</span>
-            </div>
-            <a href="{{ tipo.get_absolute_url }}" class="btn btn-primary">Agendar consulta</a>
-        </div>
-    </article>
-    {% empty %}
-    <div class="empty-state">
-        <p>🌀 Nenhum tipo de consulta disponível no momento.</p>
-    </div>
-    {% endfor %}
-</div>
+{% if atendente %}{% include 'consultas/_atendente.html' %}{% endif %}
+
+{% include 'consultas/_tipos_grid.html' %}
 
 {% include 'consultas/_depoimentos.html' %}
 {% endblock %}

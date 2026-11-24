@@ -1,0 +1,19 @@
+<section class="atendente-card" aria-label="Sua atendente">
+    <div class="atendente-foto">
+        {% if atendente.foto %}
+        <img src="{{ atendente.foto.url }}" alt="Foto de {{ atendente.nome }}">
+        {% else %}
+        <span class="placeholder-icon" aria-hidden="true">🔮</span>
+        {% endif %}
+    </div>
+    <div class="atendente-info">
+        <h2 class="atendente-nome">{{ atendente.nome }}</h2>
+        <p class="atendente-status">
+            <span class="chat-dot{% if atendente.online %} is-online{% endif %}" aria-hidden="true"></span>
+            {% if atendente.online %}Online agora{% else %}Offline no momento{% endif %}
+        </p>
+        {% if atendente.bio %}
+        <p class="atendente-bio">{{ atendente.bio|linebreaksbr }}</p>
+        {% endif %}
+    </div>
+</section>
